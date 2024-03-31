@@ -4,7 +4,6 @@ CREATE TABLE users (
                        user_id INT PRIMARY KEY AUTO_INCREMENT, -- 用户ID，唯一标识
                        name VARCHAR(255) NOT NULL, -- 用户姓名
                        phone VARCHAR(20) UNIQUE NOT NULL, -- 手机号，用于登录和联系
-                       email VARCHAR(255) UNIQUE, -- 邮箱，可选，用于登录和密码恢复
                        password VARCHAR(255) NOT NULL, -- 密码，加密存储
                        registration_date DATE NOT NULL, -- 注册日期
                        balance DECIMAL(10, 2) NOT NULL -- 预存款金额
