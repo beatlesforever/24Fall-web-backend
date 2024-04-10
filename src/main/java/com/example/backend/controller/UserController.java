@@ -2,11 +2,14 @@ package com.example.backend.controller;
 
 import com.example.backend.dto.UserLoginDTO;
 import com.example.backend.dto.UserRegisterDTO;
+import com.example.backend.entity.Roles;
 import com.example.backend.entity.User;
 import com.example.backend.service.IUserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.annotation.Secured;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.security.core.Authentication;
@@ -14,6 +17,9 @@ import org.springframework.security.core.Authentication;
 import java.math.BigDecimal;
 import java.util.HashMap;
 import java.util.Map;
+
+import static com.example.backend.entity.Roles.ADMIN;
+import static com.example.backend.entity.Roles.CUSTOMER;
 
 /**
  * @author zhouhaoran
@@ -37,8 +43,14 @@ public class UserController {
      */
     @PostMapping("/register")
     public ResponseEntity<?> registerUser(@RequestBody UserRegisterDTO userRegisterDTO) {
+        // 校验role字段是否有效
+        if (!ADMIN.equals(userRegisterDTO.getRole()) && !Roles.CUSTOMER.equals(userRegisterDTO.getRole())) {
+            return ResponseEntity.badRequest().body("无效的角色类型");
+        }
+
         // 尝试使用提供的用户信息进行注册
-        boolean isRegistered = userService.register(userRegisterDTO);
+        boolean isRegistered = userService.register(userRegisterDTO, userRegisterDTO.getRole());
+
         if (isRegistered) {
             // 注册成功，返回成功消息
             return ResponseEntity.ok().body("用户注册成功");
@@ -49,29 +61,14 @@ public class UserController {
     }
 
     /**
-     * 处理用户登录请求。
+     * 获取用户信息
+     * 本接口使用GET请求访问路径/info
+     * 通过Spring Security的Authentication参数获取用户认证信息，并从中提取用户电话号码，
+     * 进而查询用户详细信息。
      *
-     * @param userLoginDTO 包含用户登录信息的数据传输对象，通常包含手机号和密码等认证信息。
-     * @return 如果用户验证成功，返回一个表示成功的信息，否则返回一个表示失败的信息。
-     */
-    @PostMapping("/login")
-    public ResponseEntity<?> loginUser(@RequestBody UserLoginDTO userLoginDTO) {
-        // 验证用户是否存在，实际的认证过程由JwtAuthenticationFilter处理
-        boolean isValidUser = userService.validateUser(userLoginDTO);
-        if (isValidUser) {
-            // 用户验证成功。由于JwtAuthenticationFilter会自动处理认证并添加token到响应头部，这里不需要直接返回token
-            return ResponseEntity.ok().body("登录请求已提交，请检查响应头部的Authorization字段获取token。");
-        } else {
-            // 用户验证失败，返回登录失败信息
-            return ResponseEntity.badRequest().body("登录失败，手机号或密码错误");
-        }
-    }
-
-    /**
-     * 通过GET请求获取当前用户的信息。
-     *
-     * @param authentication 当前请求的认证信息，用于获取用户身份。
-     * @return 如果用户认证成功且提供了有效的用户信息，则返回该用户的信息实体；否则，返回错误信息。
+     * @param authentication 用户的认证信息，用于验证用户身份和权限。
+     * @return ResponseEntity<?> 根据操作结果返回不同的响应体。如果用户认证失败或未找到相关用户信息，
+     *         返回状态码为401或404；否则，返回状态码为200和查询到的User对象。
      */
     @GetMapping("/info")
     public ResponseEntity<?> getUserInfo(Authentication authentication) {
@@ -81,13 +78,12 @@ public class UserController {
         }
 
         UserDetails userDetails = (UserDetails) authentication.getPrincipal();
-        String phone = userDetails.getUsername(); // 获取电话号码
-        User user = userService.findByPhone(phone); // 使用电话号码获取 User 实体
+        String phone = userDetails.getUsername(); // 获取电话号码作为用户名
+        User user = userService.findByPhone(phone); // 根据电话号码查找用户
         if (user != null) {
-            return ResponseEntity.ok(user); // 返回用户信息
+            return ResponseEntity.ok(user); // 用户存在，返回用户信息
         }
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body("用户信息未找到");
-
     }
 
     /**
@@ -140,4 +136,21 @@ public class UserController {
         // 根据订单创建结果返回相应信息
         return success ? ResponseEntity.ok().body("订单创建成功，余额已扣除") : ResponseEntity.badRequest().body("订单创建失败，可能是余额不足");
     }
+
+
+    @PostMapping("/password")
+    public ResponseEntity<?> resetPassword(Authentication authentication,
+                                           @RequestBody Map<String, String> passwordMap) {
+        if (authentication == null || !(authentication.getPrincipal() instanceof UserDetails)) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("未认证的用户");
+        }
+
+        String newPassword = passwordMap.get("newPassword");
+        UserDetails userDetails = (UserDetails) authentication.getPrincipal();
+
+        boolean success = userService.resetPassword(userDetails.getUsername(), newPassword);
+        return success ? ResponseEntity.ok( "密码重置成功")
+                : ResponseEntity.badRequest().body("密码重置失败");
+    }
+
 }

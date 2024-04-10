@@ -40,7 +40,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
      * @return boolean 如果注册成功返回true，如果手机号已存在返回false。
      */
     @Override
-    public boolean register(UserRegisterDTO userRegisterDTO) {
+    public boolean register(UserRegisterDTO userRegisterDTO, String role) {
         // 检查手机号是否已存在
         QueryWrapper<User> queryWrapper = new QueryWrapper<>();
         queryWrapper.eq("phone", userRegisterDTO.getPhone());
@@ -56,6 +56,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
         user.setPassword(passwordEncoder.encode(userRegisterDTO.getPassword())); // 加密密码
         user.setRegistrationDate(new Date());
         user.setBalance(java.math.BigDecimal.ZERO); // 设置初始余额为0
+        user.setRole(role); // 设置用户角色
         userMapper.insert(user);
         return true;
     }
@@ -80,18 +81,28 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
     }
 
 
+    /**
+     * 根据手机号加载用户详情。
+     *
+     * @param phone 用户的手机号，作为登录识别标识。
+     * @return UserDetails 用户详情对象，包含用户的基本信息、权限等。
+     * @throws UsernameNotFoundException 如果根据手机号未找到用户，抛出此异常。
+     */
     @Override
     public UserDetails loadUserByUsername(String phone) throws UsernameNotFoundException {
+        // 通过手机号查询用户信息
         User user = userMapper.selectOne(new QueryWrapper<User>().eq("phone", phone));
 
+        // 如果未找到对应用户，抛出异常
         if (user == null) {
             throw new UsernameNotFoundException("User not found with phone: " + phone);
         }
 
-        // 假设每个用户都有一个"ROLE_USER"角色
+        // 构造并返回Spring Security的UserDetails对象
         return new org.springframework.security.core.userdetails.User(user.getPhone(), user.getPassword(),
-                Collections.singletonList(new SimpleGrantedAuthority("ROLE_USER")));
+                Collections.singletonList(new SimpleGrantedAuthority(user.getRole())));
     }
+
     public User findByPhone(String phone) {
         return userMapper.selectOne(new QueryWrapper<User>().eq("phone", phone));
     }
@@ -127,4 +138,17 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
         return result > 0;
     }
 
+    @Override
+    public boolean resetPassword(String phone, String newPassword) {
+        User user = findByPhone(phone);
+        if (user != null) {
+            String encodedPassword = passwordEncoder.encode(newPassword);
+            user.setPassword(encodedPassword);
+            return updateUser(user); // 实现更新用户信息的逻辑
+        }
+        return false;
+    }
+    public boolean updateUser(User user) {
+        return userMapper.updateById(user) > 0;
+    }
 }

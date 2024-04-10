@@ -21,4 +21,6 @@ public class User{
     private String password;
     private Date registrationDate;
     private BigDecimal balance;
+    private String role; // 新增角色字段
+
 }

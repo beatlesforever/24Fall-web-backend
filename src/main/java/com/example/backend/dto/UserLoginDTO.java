@@ -8,6 +8,7 @@ import lombok.Data;
  * @date 2024/3/30
  * @project Backend
  */
+@JsonIgnoreProperties(ignoreUnknown = true)
 @Data
 public class UserLoginDTO {
     private String phone;

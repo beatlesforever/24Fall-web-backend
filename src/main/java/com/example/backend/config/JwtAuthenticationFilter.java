@@ -57,10 +57,10 @@ public class JwtAuthenticationFilter extends UsernamePasswordAuthenticationFilte
                 .setSubject(((org.springframework.security.core.userdetails.User) authResult.getPrincipal()).getUsername())
                 //: authResult.getPrincipal()调用获取了认证过程中生成的Principal对象。在Spring Security的上下文中，
                 // Principal代表了经过认证的用户或实体的信息。通常情况下，这个对象是一个UserDetails实例，包含了用户的详细信息。
+                .claim("roles", authResult.getAuthorities()) // 添加用户角色作为额外的声明
                 .setExpiration(new Date(System.currentTimeMillis() + 86400000)) // 设置过期时间
                 .signWith(SignatureAlgorithm.HS512, "SecretKey") // 设置签名算法和密钥
                 .compact();
-
         // 将JWT作为响应头返回
         response.addHeader("Authorization", "Bearer " + token);
     }

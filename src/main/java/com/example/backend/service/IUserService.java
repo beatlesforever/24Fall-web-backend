@@ -15,11 +15,13 @@ import java.math.BigDecimal;
  * @project Backend
  */
 public interface IUserService extends IService<User> {
-    boolean register(UserRegisterDTO userRegisterDTO);
     User findById(Integer userId);
     UserDetails loadUserByUsername(String phone) throws UsernameNotFoundException;
     boolean validateUser(UserLoginDTO userLoginDTO);
     boolean recharge(String phone, BigDecimal amount);
     boolean placeOrder(String phone, BigDecimal orderAmount);
     User findByPhone(String phone);
+    boolean register(UserRegisterDTO userRegisterDTO, String role);
+
+    boolean resetPassword(String username, String newPassword);
 }

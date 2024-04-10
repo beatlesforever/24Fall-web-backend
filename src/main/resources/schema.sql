@@ -6,7 +6,9 @@ CREATE TABLE users (
                        phone VARCHAR(20) UNIQUE NOT NULL, -- 手机号，用于登录和联系
                        password VARCHAR(255) NOT NULL, -- 密码，加密存储
                        registration_date DATE NOT NULL, -- 注册日期
-                       balance DECIMAL(10, 2) NOT NULL -- 预存款金额
+                       balance DECIMAL(10, 2) NOT NULL, -- 预存款金额
+                       role VARCHAR(20) NOT NULL                -- 用户角色，例如ADMIN或CUSTOMER
+
 );
 
 -- 2. 菜单表（menu_items）

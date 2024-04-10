@@ -1,9 +1,9 @@
--- 插入用户数据
-INSERT INTO users (name, phone, password, registration_date, balance) VALUES
-                                                                          ('张三', '13800000000', 'password1', '2024-03-29', 100.00),
-                                                                          ('李四', '13911111111', 'password2', '2024-03-28', 150.50),
-                                                                          ('王五', '13722222222', 'password3', '2024-03-27', 200.75);
-
+-- 插入用户数据时包括角色
+INSERT INTO users (name, phone, password, registration_date, balance, role) VALUES
+                                                                                ('张三', '13800000000', 'password1', '2024-03-29', 100.00, 'ROLE_CUSTOMER'),
+                                                                                ('李四', '13911111111', 'password2', '2024-03-28', 150.50, 'ROLE_CUSTOMER'),
+                                                                                ('王五', '13722222222', 'password3', '2024-03-27', 200.75, 'ROLE_CUSTOMER'),
+                                                                                ('管理员', '18888888888', 'adminpass', '2024-03-26', 300.00, 'ROLE_ADMIN'); -- 假设你也想插入一个管理员账号
 -- 插入菜单项数据
 INSERT INTO menu_items (name, price, description, image_url, category) VALUES
                                                                            ('宫保鸡丁', 25.00, '经典川菜，麻辣鲜香', 'image1.jpg', '川菜'),
