@@ -9,6 +9,8 @@ import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
 
+import java.sql.Timestamp;
+import java.time.Instant;
 import java.util.List;
 
 /**
@@ -16,7 +18,8 @@ import java.util.List;
  * @date 2024/3/29
  * @project Backend
  */
-@Controller
+@RestController
+@RequestMapping("/api/reviews")
 public class ReviewController {
     @Autowired
     IReviewService reviewService;
@@ -24,20 +27,26 @@ public class ReviewController {
     /**
      * 添加评价
      *
-     * @param review 用户提交的评价信息，通过RequestBody接收
-     * @param authentication 当前用户的认证信息，用于判断用户是否认证
-     * @return 根据操作结果返回不同的响应实体，成功则返回200 OK和评价添加成功的消息，未认证则返回401 Unauthorized和相应消息
+     * @param review 用户提交的评价信息，通过RequestBody接收。包含评价的具体内容等。
+     * @param authentication 当前用户的认证信息，用于判断用户是否认证。由Spring Security提供。
+     * @return 根据操作结果返回不同的响应实体。成功则返回200 OK和评价添加成功的消息，未认证则返回401 Unauthorized和相应消息。
      */
     @PostMapping
     public ResponseEntity<?> addReview(@RequestBody Review review, Authentication authentication) {
-        // 检查用户是否认证，未认证则返回401状态码
+        // 检查用户是否认证，未认证则返回401状态码和相应消息
         if (authentication == null || !authentication.isAuthenticated()) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("未认证的用户");
         }
-        // 保存评价
+
+        // 设置当前服务器时间为评价时间，确保评价时间的准确性
+        review.setReviewTime(Timestamp.from(Instant.now()));
+
+        // 保存评价到数据库，调用reviewService的save方法
         reviewService.save(review);
+        // 返回评价添加成功的消息，并携带200 OK的状态码
         return ResponseEntity.ok("评价添加成功");
     }
+
 
     /**
      * 修改评价

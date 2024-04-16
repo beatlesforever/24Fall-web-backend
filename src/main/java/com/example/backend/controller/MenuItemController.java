@@ -2,6 +2,7 @@ package com.example.backend.controller;
 
 import com.example.backend.entity.MenuItem;
 import com.example.backend.service.IMenuItemService;
+import com.example.backend.service.IOrderDetailService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -10,6 +11,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
+import com.example.backend.entity.OrderDetail;
 
 import java.util.List;
 import org.springframework.security.core.Authentication;
@@ -26,6 +28,8 @@ import static com.example.backend.entity.Roles.ADMIN;
 public class MenuItemController {
     @Autowired
     IMenuItemService menuItemService;
+    @Autowired
+    IOrderDetailService orderDetailService;  // 注入订单详情服务
 
     /**
      * 获取所有菜单项的信息。
@@ -66,7 +70,7 @@ public class MenuItemController {
 
 
     /**
-     * 通过POST请求更新一个现有的菜单项。
+     * 通过PUT请求更新一个现有的菜单项。
      * 该方法需要用户具有ADMIN权限才能访问。
      *
      * @param itemId 菜单项的ID，通过URL路径变量传入，用于指定要更新的菜单项。
@@ -125,8 +129,23 @@ public class MenuItemController {
             return ResponseEntity.status(401).build();
         }
 
-        // 尝试根据ID删除菜单项，成功或失败根据返回值处理
-        boolean success = menuItemService.removeById(itemId);
-        return success ? ResponseEntity.ok("菜单项删除成功") : ResponseEntity.notFound().build();
+        // 先尝试删除所有引用该菜单项的订单详情记录
+        boolean detailsDeleted = orderDetailService.lambdaUpdate().eq(OrderDetail::getItemId, itemId).remove();
+
+        // 如果删除订单详情失败，返回错误信息
+        if (!detailsDeleted) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("删除订单详情失败");
+        }
+
+        // 删除菜单项本身
+        boolean menuItemDeleted = menuItemService.removeById(itemId);
+        // 如果菜单项删除失败，返回404状态码
+        if (!menuItemDeleted) {
+            return ResponseEntity.notFound().build();
+        }
+
+        // 删除成功，返回200状态码和成功消息
+        return ResponseEntity.ok("菜单项及其相关订单详情已成功删除");
     }
+
 }

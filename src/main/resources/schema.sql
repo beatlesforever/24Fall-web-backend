@@ -25,7 +25,7 @@ CREATE TABLE menu_items (
 CREATE TABLE orders (
                         order_id INT PRIMARY KEY AUTO_INCREMENT, -- 订单ID，唯一标识
                         user_id INT NOT NULL, -- 用户ID，外键
-                        status VARCHAR(50) NOT NULL, -- 订单状态
+                        status VARCHAR(50) NOT NULL, -- 订单状态(待处理、已完成)
                         total_price DECIMAL(10, 2) NOT NULL, -- 总价
                         order_time TIMESTAMP NOT NULL, -- 下单时间
                         notes TEXT, -- 备注

@@ -1,6 +1,8 @@
 package com.example.backend.controller;
 
+import com.example.backend.dto.OrderStatusDTO;
 import com.example.backend.entity.Order;
+import com.example.backend.entity.OrderStatus;
 import com.example.backend.service.IOrderService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -9,6 +11,8 @@ import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
 
+import java.math.BigDecimal;
+import java.sql.Timestamp;
 import java.util.List;
 
 /**
@@ -35,6 +39,13 @@ public class OrderController {
         if (authentication == null || !authentication.isAuthenticated()) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("未认证的用户");
         }
+
+        // 设置订单的默认值
+        order.setTotalPrice(BigDecimal.ZERO);   // 设置默认金额为0
+        order.setStatus(OrderStatus.PENDING.toString()); // 设置默认状态为“已下单”，并使用枚举的中文描述
+        System.out.println(OrderStatus.PENDING);
+        order.setOrderTime(new Timestamp(System.currentTimeMillis())); // 设置当前时间为订单时间
+
         // 保存订单
         orderService.save(order);
         return ResponseEntity.ok(order);
@@ -84,21 +95,31 @@ public class OrderController {
      * 更新订单状态
      *
      * @param orderId 订单ID，通过URL路径变量传递，用于确定需要更新状态的具体订单
-     * @param status 订单的新状态，通过请求体（JSON字符串）传递，表示订单更新后的状态
+     * @param statusUpdate 包含订单状态更新信息的对象，通过请求体传递
      * @param authentication 当前请求的认证信息，用于验证请求者的身份
      * @return 如果订单状态更新成功，则返回200 OK的响应实体，表示操作成功；如果找不到对应的订单，则返回404 Not Found的响应实体，表示操作失败。
      */
     @PutMapping("/{orderId}")
-    public ResponseEntity<?> updateOrderStatus(@PathVariable Integer orderId, @RequestBody String status, Authentication authentication) {
-        // 验证用户是否已通过认证，若未认证，则返回401 Unauthorized
+    public ResponseEntity<?> updateOrderStatus(@PathVariable Integer orderId, @RequestBody OrderStatusDTO statusUpdate, Authentication authentication) {
         if (authentication == null || !authentication.isAuthenticated()) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("未认证的用户");
         }
-        // 使用lambda表达式尝试更新订单状态，根据订单ID设置新的状态
-        boolean updated = orderService.lambdaUpdate().eq(Order::getOrderId, orderId).set(Order::getStatus, status).update();
-        // 根据更新操作的结果，返回相应的HTTP响应实体
-        return updated ? ResponseEntity.ok().build() : ResponseEntity.notFound().build();
+
+        try {
+            OrderStatus newStatus = OrderStatus.fromString(statusUpdate.getStatus()); // 将字符串转换为枚举
+            boolean updated = orderService.lambdaUpdate()
+                    .eq(Order::getOrderId, orderId)
+                    .set(Order::getStatus, newStatus.toString()) // 存储枚举对应的中文描述
+                    .update();
+
+            return updated ? ResponseEntity.ok().build() : ResponseEntity.notFound().build();
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body("无效的订单状态");
+        }
     }
+
+
+
 
 
 }

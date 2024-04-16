@@ -14,7 +14,7 @@ public class Order {
     @TableId(type = IdType.AUTO)
     private Integer orderId;
     private Integer userId;
-    private String status;
+    private String status;  // 改为String类型，存储中文状态描述
     private BigDecimal totalPrice;
     private Timestamp orderTime;
     private String notes;

@@ -1,7 +1,9 @@
 package com.example.backend.controller;
 
+import com.example.backend.entity.Order;
 import com.example.backend.entity.OrderDetail;
 import com.example.backend.service.IOrderDetailService;
+import com.example.backend.service.IOrderService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -9,6 +11,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 /**
@@ -21,14 +24,15 @@ import java.util.List;
 public class OrderDetailController {
     @Autowired
     IOrderDetailService orderDetailService;
-
+    @Autowired
+    IOrderService orderService; // 注入订单服务
     /**
      * 根据订单ID获取订单详情列表。
      *
      * @param orderId 通过路径变量传递的订单ID，用于查询对应的订单详情。
      * @return 返回一个响应实体，包含指定订单ID的所有订单详情列表。
      */
-    @GetMapping("/order/{orderId}")
+    @GetMapping("/{orderId}")
     public ResponseEntity<List<OrderDetail>> getOrderDetails(@PathVariable Integer orderId) {
         // 使用lambda查询方式，根据订单ID查询订单详情列表
         List<OrderDetail> orderDetails = orderDetailService.lambdaQuery().eq(OrderDetail::getOrderId, orderId).list();
@@ -50,7 +54,39 @@ public class OrderDetailController {
         }
         // 保存订单详情
         orderDetailService.save(orderDetail);
+
+        // 更新订单的总金额
+        updateOrderTotalPrice(orderDetail.getOrderId());
+
         // 返回成功响应，包含订单详情对象
         return ResponseEntity.ok(orderDetail);
     }
+
+    /**
+     * 更新指定订单的总价格。
+     *
+     * @param orderId 订单ID，用于标识需要更新总价格的订单。
+     *                该方法会根据提供的订单ID，查询该订单的所有订单详情，
+     *                计算出新的总价格，并更新到订单信息中。
+     */
+    private void updateOrderTotalPrice(Integer orderId) {
+        // 使用订单ID查询所有相关的订单详情项
+        // lambdaQuery() 创建一个查询构造器，eq() 指定查询条件，即订单ID等于传入的orderId
+        List<OrderDetail> details = orderDetailService.lambdaQuery().eq(OrderDetail::getOrderId, orderId).list();
+
+        // 使用Java 8的流（Stream）来计算订单的总价格
+        // map() 方法用于转换每个订单详情项的价格，通过价格乘以数量来计算每个详情项的总价
+        // reduce() 方法用于将所有订单详情项的总价累加起来，如果没有详情项，初始值为BigDecimal.ZERO
+        BigDecimal newTotalPrice = details.stream()
+                .map(detail -> detail.getPrice().multiply(new BigDecimal(detail.getQuantity())))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        // 获取对应的订单实体
+        Order order = orderService.getById(orderId);
+        if (order != null) { // 确保查询到的订单实体存在
+            order.setTotalPrice(newTotalPrice); // 设置订单的新的总价格
+            orderService.updateById(order); // 调用服务层的方法更新订单实体，将新的总价格保存到数据库中
+        }
+    }
+
 }

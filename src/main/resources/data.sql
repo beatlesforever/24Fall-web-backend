@@ -18,7 +18,7 @@ INSERT INTO orders (user_id, status, total_price, order_time, notes) VALUES
 
 -- 插入订单详情数据
 INSERT INTO order_details (order_id, item_id, quantity, price, size) VALUES
-                                                                         (1, 1, 1, 25.00, NULL),
+                                                                         (1, 1, 1, 25.00, '大份'),
                                                                          (1, 2, 1, 38.00, '大份'),
-                                                                         (2, 3, 1, 15.00, NULL),
+                                                                         (2, 3, 1, 15.00, '小份'),
                                                                          (3, 1, 1, 25.00, '小份');
