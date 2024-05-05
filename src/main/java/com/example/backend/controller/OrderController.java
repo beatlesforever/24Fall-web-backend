@@ -43,7 +43,6 @@ public class OrderController {
         // 设置订单的默认值
         order.setTotalPrice(BigDecimal.ZERO);   // 设置默认金额为0
         order.setStatus(OrderStatus.PENDING.toString()); // 设置默认状态为“已下单”，并使用枚举的中文描述
-        System.out.println(OrderStatus.PENDING);
         order.setOrderTime(new Timestamp(System.currentTimeMillis())); // 设置当前时间为订单时间
 
         // 保存订单
