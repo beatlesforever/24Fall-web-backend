@@ -13,7 +13,10 @@ import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
 import com.example.backend.entity.OrderDetail;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+
 import org.springframework.security.core.Authentication;
 
 import static com.example.backend.entity.Roles.ADMIN;
@@ -31,6 +34,14 @@ public class MenuItemController {
     @Autowired
     IOrderDetailService orderDetailService;  // 注入订单详情服务
 
+    private ResponseEntity<Map<String, Object>> createResponse(HttpStatus status, String message, Object data) {
+        Map<String, Object> responseBody = new HashMap<>();
+        responseBody.put("status", status.value() + " " + status.getReasonPhrase());
+        responseBody.put("message", message);
+        responseBody.put("data", data);
+        return new ResponseEntity<>(responseBody, status);
+    }
+
     /**
      * 获取所有菜单项的信息。
      *
@@ -38,14 +49,13 @@ public class MenuItemController {
      * @return 返回一个响应实体，包含所有菜单项的列表。如果用户未认证，返回401状态码。
      */
     @GetMapping
-    public ResponseEntity<List<MenuItem>> getAllMenuItems(Authentication authentication) {
-        // 验证用户认证信息是否合法
+    public ResponseEntity<?> getAllMenuItems(Authentication authentication) {
         if (authentication == null || !authentication.isAuthenticated()) {
-            return ResponseEntity.status(401).build(); // 用户未认证，返回401状态码
+            return createResponse(HttpStatus.UNAUTHORIZED, "用户未认证", null);
         }
 
-        List<MenuItem> items = menuItemService.list(); // 从服务层获取所有菜单项
-        return ResponseEntity.ok(items); // 返回200状态码和菜单项列表
+        List<MenuItem> items = menuItemService.list();
+        return createResponse(HttpStatus.OK, "获取所有菜单项成功", items);
     }
 
     /**
@@ -57,15 +67,12 @@ public class MenuItemController {
      *         如果用户未认证，返回401状态码。
      */
     @GetMapping("/{itemId}")
-    public ResponseEntity<MenuItem> getMenuItem(@PathVariable Long itemId, Authentication authentication) {
-        // 验证用户是否已认证，未认证返回401
+    public ResponseEntity<?> getMenuItem(@PathVariable Long itemId, Authentication authentication) {
         if (authentication == null || !authentication.isAuthenticated()) {
-            return ResponseEntity.status(401).build();
+            return createResponse(HttpStatus.UNAUTHORIZED, "用户未认证", null);
         }
-
-        MenuItem item = menuItemService.getById(itemId); // 从服务中尝试获取指定ID的菜单项
-        // 根据菜单项是否存在，返回不同的ResponseEntity
-        return item != null ? ResponseEntity.ok(item) : ResponseEntity.notFound().build();
+        MenuItem item = menuItemService.getById(itemId);
+        return item != null ? createResponse(HttpStatus.OK, "获取菜单项成功", item) : createResponse(HttpStatus.NOT_FOUND, "菜单项不存在", null);
     }
 
 
@@ -80,16 +87,20 @@ public class MenuItemController {
      */
     @Secured(ADMIN)
     @PutMapping("/{itemId}")
-    public ResponseEntity<String> updateMenuItem(@PathVariable Integer itemId, @RequestBody MenuItem menuItem, Authentication authentication) {
-        // 检查用户是否已认证，未认证返回401状态码
+    public ResponseEntity<?> updateMenuItem(@PathVariable Integer itemId, @RequestBody MenuItem menuItem, Authentication authentication) {
         if (authentication == null || !authentication.isAuthenticated()) {
-            return ResponseEntity.status(401).build();
+            return createResponse(HttpStatus.UNAUTHORIZED, "用户未认证", null);
         }
 
-        // 设置菜单项ID，准备更新
+        // 尝试获取菜单项，如果不存在，则返回404
+        MenuItem item = menuItemService.getById(itemId);
+        if (item == null) {
+            return createResponse(HttpStatus.NOT_FOUND, "菜单项不存在，无法更新", null);
+        }
+
         menuItem.setItemId(itemId);
-        menuItemService.updateById(menuItem); // 通过服务层更新菜单项信息
-        return ResponseEntity.ok("菜单项更新成功"); // 返回成功响应
+        menuItemService.updateById(menuItem);
+        return createResponse(HttpStatus.OK, "菜单项更新成功", null);
     }
 
 
@@ -103,15 +114,13 @@ public class MenuItemController {
      */
     @Secured(ADMIN)
     @PostMapping
-    public ResponseEntity<String> addMenuItem(@RequestBody MenuItem menuItem, Authentication authentication) {
-        // 检查用户是否已认证，未认证返回401
+    public ResponseEntity<?> addMenuItem(@RequestBody MenuItem menuItem, Authentication authentication) {
         if (authentication == null || !authentication.isAuthenticated()) {
-            return ResponseEntity.status(401).build();
+            return createResponse(HttpStatus.UNAUTHORIZED, "用户未认证", null);
         }
 
-        // 保存菜单项
         menuItemService.save(menuItem);
-        return ResponseEntity.ok("菜单项添加成功");
+        return createResponse(HttpStatus.OK, "菜单项添加成功", null);
     }
 
     /**
@@ -121,31 +130,30 @@ public class MenuItemController {
      * @param authentication 当前用户的认证信息，用于权限检查。
      * @return 如果删除成功，返回状态码200和删除成功的消息；如果删除失败（如项目不存在），返回状态码404。
      */
-    @Secured(ADMIN) // 限定只有拥有ADMIN权限的角色才能访问该方法
+    @Secured(ADMIN)
     @DeleteMapping("/{itemId}")
-    public ResponseEntity<String> deleteMenuItem(@PathVariable Long itemId, Authentication authentication) {
-        // 检查用户是否已认证，未认证返回401状态码
+    public ResponseEntity<?> deleteMenuItem(@PathVariable Long itemId, Authentication authentication) {
         if (authentication == null || !authentication.isAuthenticated()) {
-            return ResponseEntity.status(401).build();
+            return createResponse(HttpStatus.UNAUTHORIZED, "用户未认证", null);
         }
 
-        // 先尝试删除所有引用该菜单项的订单详情记录
+        // 尝试获取菜单项，如果不存在，则返回404
+        MenuItem item = menuItemService.getById(itemId);
+        if (item == null) {
+            return createResponse(HttpStatus.NOT_FOUND, "菜单项不存在，无法删除", null);
+        }
+
+        // 删除相关订单详情，如果没有详情关联，则这一步不会有删除动作，但不应视为错误
         boolean detailsDeleted = orderDetailService.lambdaUpdate().eq(OrderDetail::getItemId, itemId).remove();
-
-        // 如果删除订单详情失败，返回错误信息
-        if (!detailsDeleted) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("删除订单详情失败");
-        }
 
         // 删除菜单项本身
         boolean menuItemDeleted = menuItemService.removeById(itemId);
-        // 如果菜单项删除失败，返回404状态码
         if (!menuItemDeleted) {
-            return ResponseEntity.notFound().build();
+            return createResponse(HttpStatus.INTERNAL_SERVER_ERROR, "删除菜单项失败", null);
         }
 
-        // 删除成功，返回200状态码和成功消息
-        return ResponseEntity.ok("菜单项及其相关订单详情已成功删除");
+        // 如果一切顺利，即使没有订单详情被删除，也返回成功删除的消息
+        return createResponse(HttpStatus.OK, "菜单项及其相关订单详情已成功删除", null);
     }
 
 }

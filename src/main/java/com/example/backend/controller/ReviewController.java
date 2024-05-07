@@ -1,7 +1,9 @@
 package com.example.backend.controller;
 
 import com.example.backend.entity.Review;
+import com.example.backend.service.IMenuItemService;
 import com.example.backend.service.IReviewService;
+import com.example.backend.service.IUserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -11,7 +13,9 @@ import org.springframework.web.bind.annotation.*;
 
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * @author zhouhaoran
@@ -23,6 +27,18 @@ import java.util.List;
 public class ReviewController {
     @Autowired
     IReviewService reviewService;
+    @Autowired
+    IMenuItemService menuItemService;
+    @Autowired
+    IUserService userService;
+
+    private ResponseEntity<Map<String, Object>> createResponse(HttpStatus status, String message, Object data) {
+        Map<String, Object> responseBody = new HashMap<>();
+        responseBody.put("status", status.value() + " " + status.getReasonPhrase());
+        responseBody.put("message", message);
+        responseBody.put("data", data);
+        return new ResponseEntity<>(responseBody, status);
+    }
 
     /**
      * 添加评价
@@ -41,11 +57,18 @@ public class ReviewController {
         // 设置当前服务器时间为评价时间，确保评价时间的准确性
         review.setReviewTime(Timestamp.from(Instant.now()));
 
-        // 保存评价到数据库，调用reviewService的save方法
+        // 保存评价到数据库
         reviewService.save(review);
-        // 返回评价添加成功的消息，并携带200 OK的状态码
-        return ResponseEntity.ok("评价添加成功");
+
+        // 构建返回给客户端的响应数据
+        Map<String, Object> data = new HashMap<>();
+        data.put("review", review);
+
+        // 创建并返回响应实体
+        return createResponse(HttpStatus.OK, "评价添加成功", data);
+
     }
+
 
 
     /**
@@ -58,15 +81,23 @@ public class ReviewController {
      */
     @PutMapping("/{reviewId}")
     public ResponseEntity<?> updateReview(@PathVariable Integer reviewId, @RequestBody Review review, Authentication authentication) {
-        // 检查用户是否认证
         if (authentication == null || !authentication.isAuthenticated()) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("未认证的用户");
+            return createResponse(HttpStatus.UNAUTHORIZED, "用户未认证", null);
         }
+
         review.setReviewId(reviewId);
         // 更新评价
         boolean updated = reviewService.updateById(review);
-        // 根据更新结果返回相应的响应
-        return updated ? ResponseEntity.ok("评价更新成功") : ResponseEntity.notFound().build();
+
+        if (updated) {
+            Review updatedReview = reviewService.getById(reviewId);
+
+            Map<String, Object> reviewData = new HashMap<>();
+            reviewData.put("review", updatedReview);
+            return createResponse(HttpStatus.OK, "评价更新成功", reviewData);
+        } else {
+            return createResponse(HttpStatus.NOT_FOUND, "评价未找到", null);
+        }
     }
 
 
@@ -79,14 +110,18 @@ public class ReviewController {
      */
     @DeleteMapping("/{reviewId}")
     public ResponseEntity<?> deleteReview(@PathVariable Integer reviewId, Authentication authentication) {
-        // 检查用户是否已认证，未认证返回401
         if (authentication == null || !authentication.isAuthenticated()) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("未认证的用户");
+            return createResponse(HttpStatus.UNAUTHORIZED, "用户未认证", null);
         }
-        // 根据评价ID删除评价
         boolean removed = reviewService.removeById(reviewId);
-        // 删除成功返回200，失败返回404
-        return removed ? ResponseEntity.ok("评价删除成功") : ResponseEntity.notFound().build();
+
+        if (removed) {
+            Map<String, Object> responseData = new HashMap<>();
+            responseData.put("reviewId", reviewId);
+            return createResponse(HttpStatus.OK, "评价删除成功", responseData);
+        } else {
+            return createResponse(HttpStatus.NOT_FOUND, "评价未找到", null);
+        }
     }
 
 
@@ -97,22 +132,47 @@ public class ReviewController {
      * @return 返回一个响应实体，包含指定菜品ID的所有评价列表
      */
     @GetMapping("/item/{itemId}")
-    public ResponseEntity<List<Review>> getReviewsByItemId(@PathVariable Integer itemId) {
-        // 使用lambda查询方式，根据菜品ID查询所有的评价
-        List<Review> reviews = reviewService.lambdaQuery().eq(Review::getItemId, itemId).list();
-        return ResponseEntity.ok(reviews);
-    }
+    public ResponseEntity<Map<String, Object>> getReviewsByItemId(@PathVariable Integer itemId) {
 
+        // 查询菜品是否存在
+        boolean itemExists = menuItemService.getById(itemId) != null;
+
+        // 如果菜品不存在，返回404 Not Found
+        if (!itemExists) {
+            return createResponse(HttpStatus.NOT_FOUND, "菜品ID不存在", null);
+        }
+
+        List<Review> reviews = reviewService.lambdaQuery().eq(Review::getItemId, itemId).list();
+
+        Map<String, Object> responseData = new HashMap<>();
+        responseData.put("reviews", reviews);
+        return createResponse(HttpStatus.OK, "查询成功", responseData);
+    }
     /**
      * 根据用户ID获取该用户的所有评价
      *
      * @param userId 用户的ID，作为查询条件
-     * @return 返回一个响应实体，包含该用户的所有评价列表。如果查询成功，响应状态码为200 OK。
+     * @return 返回一个响应实体，包含该用户的所有评价列表。
+     *         如果查询成功，响应状态码为200 OK，返回的响应体中包含"reviews"字段，其值为用户评价列表。
      */
     @GetMapping("/user/{userId}")
-    public ResponseEntity<List<Review>> getReviewsByUserId(@PathVariable Integer userId) {
-        // 通过用户ID查询该用户的所有评价
+    public ResponseEntity<Map<String, Object>> getReviewsByUserId(@PathVariable Integer userId) {
+        // 查询用户是否存在
+        boolean userExists = userService.getById(userId) != null;
+
+        // 如果用户不存在，返回404 Not Found
+        if (!userExists) {
+            return createResponse(HttpStatus.NOT_FOUND, "用户ID不存在", null);
+        }
+        // 根据用户ID查询该用户的所有评价
         List<Review> reviews = reviewService.lambdaQuery().eq(Review::getUserId, userId).list();
-        return ResponseEntity.ok(reviews);
+
+        // 准备响应数据，包含评价列表
+        Map<String, Object> responseData = new HashMap<>();
+        responseData.put("reviews", reviews);
+
+        // 构建并返回响应实体，状态码为200 OK，附带查询成功的消息和查询结果
+        return createResponse(HttpStatus.OK, "查询成功", responseData);
     }
+
 }

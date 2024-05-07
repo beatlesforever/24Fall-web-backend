@@ -34,31 +34,53 @@ import static com.example.backend.entity.Roles.CUSTOMER;
 public class UserController {
     @Autowired
     IUserService userService;
+    /**
+     * 创建一个包含状态码、消息和数据的响应实体。
+     *
+     * @param status HTTP状态码，代表响应的状态。
+     * @param message 响应消息，用于描述响应的详细信息。
+     * @param data 响应数据，实际返回给客户端的内容。
+     * @return ResponseEntity<Map<String, Object>> 一个包含状态码、消息和数据的响应实体。
+     */
+    private ResponseEntity<Map<String, Object>> createResponse(HttpStatus status, String message, Object data) {
+        // 初始化响应体，用于存放状态码、消息和数据
+        Map<String, Object> responseBody = new HashMap<>();
+        // 设置响应状态，包括状态码和状态码描述
+        responseBody.put("status", status.value() + " " + status.getReasonPhrase());
+        // 设置响应消息
+        responseBody.put("message", message);
+        // 设置响应数据
+        responseBody.put("data", data);
+        // 构造并返回响应实体
+        return new ResponseEntity<>(responseBody, status);
+    }
+
 
     /**
      * 用户注册接口。接收用户注册请求，处理用户注册逻辑。
      *
-     * @param userRegisterDTO 包含用户注册信息的数据传输对象，通常包括用户名、密码、联系方式等。
-     * @return 如果注册成功，返回注册成功的消息的响应实体；如果注册失败，返回失败原因的响应实体。
+     * @param userRegisterDTO 包含用户注册信息的数据传输对象, 通常包括用户名、密码、联系方式等。
+     *                        用户注册信息必须包含一个有效的角色类型（管理员或普通用户）。
+     * @return 返回一个响应实体，如果注册成功，包含成功的消息；如果注册失败，包含失败的原因。
+     *         响应实体使用HTTP状态码来表示操作的成功或失败。
      */
     @PostMapping("/register")
-    public ResponseEntity<?> registerUser(@RequestBody UserRegisterDTO userRegisterDTO) {
-        // 校验role字段是否有效
+    public ResponseEntity<Map<String, Object>> registerUser(@RequestBody UserRegisterDTO userRegisterDTO) {
+        // 检查用户注册的角色是否有效，仅支持管理员和普通用户注册
         if (!ADMIN.equals(userRegisterDTO.getRole()) && !Roles.CUSTOMER.equals(userRegisterDTO.getRole())) {
-            return ResponseEntity.badRequest().body("无效的角色类型");
+            return createResponse(HttpStatus.BAD_REQUEST, "无效的角色类型", null);
         }
 
-        // 尝试使用提供的用户信息进行注册
+        // 调用userService完成用户注册逻辑，并根据结果返回相应的响应实体
         boolean isRegistered = userService.register(userRegisterDTO, userRegisterDTO.getRole());
-
         if (isRegistered) {
-            // 注册成功，返回成功消息
-            return ResponseEntity.ok().body("用户注册成功");
+            return createResponse(HttpStatus.OK, "用户注册成功", null);
         } else {
-            // 注册失败，返回失败消息
-            return ResponseEntity.badRequest().body("注册失败，可能是由于手机号已存在或其他原因");
+            // 注册失败，可能是由于手机号已存在或其他原因
+            return createResponse(HttpStatus.BAD_REQUEST, "注册失败，可能是由于手机号已存在或其他原因", null);
         }
     }
+
 
     /**
      * 获取用户信息
@@ -71,19 +93,19 @@ public class UserController {
      *         返回状态码为401或404；否则，返回状态码为200和查询到的User对象。
      */
     @GetMapping("/info")
-    public ResponseEntity<?> getUserInfo(Authentication authentication) {
-        // 验证用户认证信息是否合法
+    public ResponseEntity<Map<String, Object>> getUserInfo(Authentication authentication) {
         if (authentication == null || !(authentication.getPrincipal() instanceof UserDetails)) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("未认证的用户");
+            return createResponse(HttpStatus.UNAUTHORIZED, "未认证的用户", null);
         }
 
         UserDetails userDetails = (UserDetails) authentication.getPrincipal();
-        String phone = userDetails.getUsername(); // 获取电话号码作为用户名
-        User user = userService.findByPhone(phone); // 根据电话号码查找用户
+        String phone = userDetails.getUsername();
+        User user = userService.findByPhone(phone);
         if (user != null) {
-            return ResponseEntity.ok(user); // 用户存在，返回用户信息
+            return createResponse(HttpStatus.OK, "用户信息获取成功", user);
+        } else {
+            return createResponse(HttpStatus.NOT_FOUND, "用户信息未找到", null);
         }
-        return ResponseEntity.status(HttpStatus.NOT_FOUND).body("用户信息未找到");
     }
 
     /**
@@ -94,21 +116,24 @@ public class UserController {
      * @return ResponseEntity<?> 根据充值结果返回不同的响应，包括成功或失败的信息
      */
     @PostMapping("/recharge")
-    public ResponseEntity<?> recharge(Authentication authentication, @RequestBody Map<String, BigDecimal> amountMap) {
-        // 检查用户是否已认证，以及认证信息是否有效
+    public ResponseEntity<Map<String, Object>> recharge(Authentication authentication, @RequestBody Map<String, BigDecimal> amountMap) {
+        // 检查用户认证信息是否合法
         if (authentication == null || !(authentication.getPrincipal() instanceof UserDetails)) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("未认证的用户");
+            System.err.println("2222");
+            return createResponse(HttpStatus.UNAUTHORIZED, "未认证的用户", null);
         }
+
         // 从认证信息中提取用户详情
         UserDetails userDetails = (UserDetails) authentication.getPrincipal();
-        // 提取充值金额，并进行合法性检查
+        // 提取充值金额，并检查其合法性
         BigDecimal amount = amountMap.get("amount");
         if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
-            return ResponseEntity.badRequest().body("充值金额必须大于0");
+            return createResponse(HttpStatus.BAD_REQUEST, "充值金额必须大于0", null);
         }
-        // 调用服务层方法执行充值操作，并根据结果返回相应的响应
+
+        // 执行用户充值操作，并根据结果返回相应的响应
         boolean success = userService.recharge(userDetails.getUsername(), amount);
-        return success ? ResponseEntity.ok().body("充值成功") : ResponseEntity.badRequest().body("充值失败");
+        return success ? createResponse(HttpStatus.OK, "充值成功", null) : createResponse(HttpStatus.BAD_REQUEST, "充值失败", null);
     }
 
 
@@ -120,37 +145,49 @@ public class UserController {
      * @return ResponseEntity<?> 根据订单创建的结果返回不同的状态和信息：成功创建返回200 OK，包含成功信息；未认证用户返回401 Unauthorized；订单金额不合法返回400 Bad Request。
      */
     @PostMapping("/order")
-    public ResponseEntity<?> placeOrder(Authentication authentication, @RequestBody Map<String, BigDecimal> orderAmountMap) {
-        // 验证用户认证信息是否合法
+    public ResponseEntity<Map<String, Object>> placeOrder(Authentication authentication, @RequestBody Map<String, BigDecimal> orderAmountMap) {
+        // 检查用户认证信息是否合法
         if (authentication == null || !(authentication.getPrincipal() instanceof UserDetails)) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("未认证的用户");
+            return createResponse(HttpStatus.UNAUTHORIZED, "未认证的用户", null);
         }
+
+        // 获取用户详细信息并验证订单金额
         UserDetails userDetails = (UserDetails) authentication.getPrincipal();
-        // 提取并验证订单金额
         BigDecimal orderAmount = orderAmountMap.get("orderAmount");
         if (orderAmount == null || orderAmount.compareTo(BigDecimal.ZERO) <= 0) {
-            return ResponseEntity.badRequest().body("订单金额必须大于0");
+            return createResponse(HttpStatus.BAD_REQUEST, "订单金额必须大于0", null);
         }
+
         // 尝试创建订单
         boolean success = userService.placeOrder(userDetails.getUsername(), orderAmount);
         // 根据订单创建结果返回相应信息
-        return success ? ResponseEntity.ok().body("订单创建成功，余额已扣除") : ResponseEntity.badRequest().body("订单创建失败，可能是余额不足");
+        return success ? createResponse(HttpStatus.OK, "订单创建成功，余额已扣除", null) : createResponse(HttpStatus.BAD_REQUEST, "订单创建失败，可能是余额不足", null);
     }
 
 
+
+    /**
+     * 重置用户密码的接口。
+     *
+     * @param authentication 当前用户的认证信息，用于确认用户身份和权限。
+     * @param passwordMap 包含新密码的Map，"newPassword"键对应的值为新密码。
+     * @return 返回一个ResponseEntity对象，包含密码重置的结果状态码、消息和数据。
+     */
     @PostMapping("/password")
-    public ResponseEntity<?> resetPassword(Authentication authentication,
-                                           @RequestBody Map<String, String> passwordMap) {
+    public ResponseEntity<Map<String, Object>> resetPassword(Authentication authentication, @RequestBody Map<String, String> passwordMap) {
+        // 检查用户是否已认证，以及认证信息中是否包含UserDetails对象
         if (authentication == null || !(authentication.getPrincipal() instanceof UserDetails)) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("未认证的用户");
+            return createResponse(HttpStatus.UNAUTHORIZED, "未认证的用户", null);
         }
 
+        // 从请求体中获取新密码
         String newPassword = passwordMap.get("newPassword");
+        // 将认证信息中的UserDetails转换成具体的用户详情对象
         UserDetails userDetails = (UserDetails) authentication.getPrincipal();
-
+        // 调用服务层方法，尝试重置密码
         boolean success = userService.resetPassword(userDetails.getUsername(), newPassword);
-        return success ? ResponseEntity.ok( "密码重置成功")
-                : ResponseEntity.badRequest().body("密码重置失败");
+        // 根据重置密码的结果，返回相应的ResponseEntity
+        return success ? createResponse(HttpStatus.OK, "密码重置成功", null) : createResponse(HttpStatus.BAD_REQUEST, "密码重置失败", null);
     }
 
 }
