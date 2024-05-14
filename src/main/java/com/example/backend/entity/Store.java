@@ -5,19 +5,17 @@ import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
 
-import java.math.BigDecimal;
-
+/**
+ * @author zhouhaoran
+ * @date 2024/5/14
+ * @project Backend
+ */
 @Data
-@TableName("menu_items")
-public class MenuItem {
+@TableName("stores")
+public class Store {
     @TableId(type = IdType.AUTO)
-    private Integer itemId;
     private Integer storeId;
     private String name;
-    private String description;
-    private String imageUrl;
-    private String category;
-    private BigDecimal smallSizePrice;
-    private BigDecimal largeSizePrice;
-    private Integer sizeStock;
+    private String location;
 }
+
