@@ -1,9 +1,11 @@
 package com.example.backend.controller;
 
 import com.example.backend.dto.OrderStatusDTO;
-import com.example.backend.entity.Order;
-import com.example.backend.entity.OrderStatus;
+import com.example.backend.entity.*;
+import com.example.backend.service.IMenuItemService;
+import com.example.backend.service.IOrderDetailService;
 import com.example.backend.service.IOrderService;
+import com.example.backend.service.IUserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -28,6 +30,12 @@ import java.util.stream.Collectors;
 public class OrderController {
     @Autowired
     IOrderService orderService;
+    @Autowired
+    IOrderDetailService orderDetailService;
+    @Autowired
+    IMenuItemService menuItemService;
+    @Autowired
+    IUserService userService;
     private ResponseEntity<Map<String, Object>> createResponse(HttpStatus status, String message, Object data) {
         Map<String, Object> responseBody = new HashMap<>();
         responseBody.put("status", status.value() + " " + status.getReasonPhrase());
@@ -51,20 +59,23 @@ public class OrderController {
 
         // 初始化订单状态和时间
         order.setTotalPrice(BigDecimal.ZERO);  // 初始金额设置为0
-        order.setStatus(OrderStatus.PENDING.toString());  // 订单状态设置为待处理
+        order.setStatus(OrderStatus.CREATED.toString());  // 订单状态设置为已创建
         order.setOrderTime(new Timestamp(System.currentTimeMillis()));  // 设置订单时间为当前时间
 
         // 保存订单到数据库
         orderService.save(order);
 
-        // 准备订单创建成功后返回的数据
+// 准备订单创建成功后返回的数据
         Map<String, Object> data = new HashMap<>();
         data.put("orderId", order.getOrderId());
         data.put("userId", order.getUserId());
+        data.put("storeId", order.getStoreId());
         data.put("status", order.getStatus());
         data.put("totalPrice", order.getTotalPrice());
         data.put("orderTime", order.getOrderTime().toString());
         data.put("notes", order.getNotes());
+        data.put("dineOption", order.getDineOption());
+
 
         // 返回订单创建成功的响应，包含订单详细信息
         return createResponse(HttpStatus.OK, "订单创建成功", data);
@@ -95,10 +106,12 @@ public class OrderController {
         Map<String, Object> data = new HashMap<>();
         data.put("orderId", order.getOrderId());
         data.put("userId", order.getUserId());
+        data.put("storeId", order.getStoreId());
         data.put("status", order.getStatus());
         data.put("totalPrice", order.getTotalPrice());
         data.put("orderTime", order.getOrderTime().toString());
         data.put("notes", order.getNotes());
+        data.put("dineOption", order.getDineOption());
 
         // 返回订单信息的响应
         return createResponse(HttpStatus.OK, "订单信息获取成功", data);
@@ -128,10 +141,12 @@ public class OrderController {
             Map<String, Object> detail = new HashMap<>();
             detail.put("orderId", order.getOrderId());
             detail.put("userId", order.getUserId());
+            detail.put("storeId", order.getStoreId());
             detail.put("status", order.getStatus());
             detail.put("totalPrice", order.getTotalPrice());
             detail.put("orderTime", order.getOrderTime().toString());
             detail.put("notes", order.getNotes());
+            detail.put("dineOption", order.getDineOption());
             return detail;
         }).collect(Collectors.toList());
 
@@ -143,40 +158,6 @@ public class OrderController {
     }
 
 
-    /**
-     * 更新订单状态
-     *
-     * @param orderId 订单ID，通过URL路径变量传递，用于确定需要更新状态的具体订单
-     * @param statusUpdate 包含订单状态更新信息的对象，通过请求体传递
-     * @param authentication 当前请求的认证信息，用于验证请求者的身份
-     * @return 如果订单状态更新成功，则返回200 OK的响应实体，表示操作成功；如果找不到对应的订单，则返回404 Not Found的响应实体，表示操作失败。
-     */
-    @PutMapping("/{orderId}")
-    public ResponseEntity<?> updateOrderStatus(@PathVariable Integer orderId, @RequestBody OrderStatusDTO statusUpdate, Authentication authentication) {
-        if (authentication == null || !authentication.isAuthenticated()) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("未认证的用户");
-        }
-
-        try {
-            OrderStatus newStatus = OrderStatus.fromString(statusUpdate.getStatus()); // 将字符串转换为枚举
-            boolean updated = orderService.lambdaUpdate()
-                    .eq(Order::getOrderId, orderId)
-                    .set(Order::getStatus, newStatus.toString()) // 存储枚举对应的中文描述
-                    .update();
-
-            return updated ? ResponseEntity.ok().build() : ResponseEntity.notFound().build();
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body("无效的订单状态");
-        }
-    }
-
-    /**
-     * 获取所有订单的信息列表。
-     * <p>
-     * 该接口不接受任何参数，返回所有订单的详细信息列表，包括订单号、用户ID、状态、总价、下单时间和备注。
-     * <p>
-     * 返回值: ResponseEntity<?> 包含订单信息的HTTP响应实体，包括状态码、消息和数据部分。
-     */
     @GetMapping
     public ResponseEntity<?> getAllOrders() {
         // 从订单服务获取所有订单列表
@@ -187,10 +168,12 @@ public class OrderController {
             Map<String, Object> detail = new HashMap<>();
             detail.put("orderId", order.getOrderId());
             detail.put("userId", order.getUserId());
+            detail.put("storeId", order.getStoreId());
             detail.put("status", order.getStatus());
             detail.put("totalPrice", order.getTotalPrice());
             detail.put("orderTime", order.getOrderTime().toString());
             detail.put("notes", order.getNotes());
+            detail.put("dineOption", order.getDineOption());
             return detail;
         }).collect(Collectors.toList());
 
@@ -201,8 +184,255 @@ public class OrderController {
         // 创建并返回一个包含状态码、消息和数据的响应实体
         return createResponse(HttpStatus.OK, "所有订单列表获取成功", data);
     }
+    /**
+     * 删除订单。
+     *
+     * @param orderId 订单ID，通过URL路径变量传递。
+     * @param authentication 当前请求的认证信息，用于权限验证。
+     * @return 如果删除成功，则返回200 OK的响应实体；如果找不到对应的订单，则返回404 Not Found的响应实体。
+     */
+    @DeleteMapping("/{orderId}")
+    public ResponseEntity<?> deleteOrder(@PathVariable Integer orderId, Authentication authentication) {
+        // 验证用户是否认证
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return createResponse(HttpStatus.UNAUTHORIZED, "用户未认证", null);
+        }
+
+        // 尝试删除订单
+        boolean removed = orderService.removeById(orderId);
+        if (removed) {
+            return createResponse(HttpStatus.OK, "订单删除成功", null);
+        } else {
+            return createResponse(HttpStatus.NOT_FOUND, "订单未找到", null);
+        }
+    }
+    /**
+     * 获取订单统计信息。
+     *
+     * @return 返回包含订单总数、各状态订单数量的统计信息。
+     */
+    @GetMapping("/stats")
+    public ResponseEntity<?> getOrderStats() {
+        // 从订单服务获取所有订单列表
+        List<Order> orders = orderService.list();
+
+        // 统计各状态订单数量
+        Map<String, Long> stats = orders.stream()
+                .collect(Collectors.groupingBy(Order::getStatus, Collectors.counting()));
+
+        // 添加总订单数
+        stats.put("总共", (long) orders.size());
+
+        // 返回统计信息
+        return createResponse(HttpStatus.OK, "订单统计信息获取成功", stats);
+    }
+    /**
+     * 确认订单的接口。
+     *
+     * @param orderId 订单ID，通过URL路径变量传递。
+     * @param authentication 当前用户的认证信息，用于权限验证。
+     * @return 根据操作结果返回不同的响应实体，包括订单确认成功、未认证的用户、订单未找到或订单状态不允许确认等情形。
+     */
+    @PutMapping("/confirm/{orderId}")
+    public ResponseEntity<?> confirmOrder(@PathVariable Integer orderId, Authentication authentication) {
+        // 验证用户是否已认证，未认证返回401
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return createResponse(HttpStatus.UNAUTHORIZED, "未认证的用户", null);
+        }
+
+        // 根据订单ID获取订单，不存在返回404
+        Order order = orderService.getById(orderId);
+        if (order == null) {
+            return createResponse(HttpStatus.NOT_FOUND, "订单未找到", null);
+        }
+
+        // 检查订单状态是否允许更新为进行中，不允许返回400
+        if (!OrderStatus.CREATED.toString().equals(order.getStatus())) {
+            return createResponse(HttpStatus.BAD_REQUEST, "订单状态不允许此操作", null);
+        }
+
+        updateInventory(order, false); // 减少库存
+        deductUserBalance(order); // 扣除用户余额
+        order.setStatus(OrderStatus.IN_PROGRESS.toString());
+        orderService.updateById(order);
+        // 订单确认成功，返回200
+        return createResponse(HttpStatus.OK, "订单确认成功", order);
+    }
+
+    /**
+     * 完成指定订单的操作。
+     *
+     * @param orderId 订单的ID，通过URL路径变量传递。
+     * @param authentication 当前用户的认证信息，用于权限验证。
+     * @return 根据操作结果返回不同的响应实体，包括订单完成成功、未认证、订单不存在或订单状态不允许完成操作的情况。
+     */
+    @PutMapping("/complete/{orderId}")
+    public ResponseEntity<?> completeOrder(@PathVariable Integer orderId, Authentication authentication) {
+        // 验证用户是否已认证，未认证返回401
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return createResponse(HttpStatus.UNAUTHORIZED, "未认证的用户", null);
+        }
+
+        // 根据订单ID获取订单，不存在返回404
+        Order order = orderService.getById(orderId);
+        if (order == null) {
+            return createResponse(HttpStatus.NOT_FOUND, "订单未找到", null);
+        }
+
+        // 检查订单状态是否允许完成操作，不允许返回400
+        if (!OrderStatus.IN_PROGRESS.toString().equals(order.getStatus())) {
+            return createResponse(HttpStatus.BAD_REQUEST, "订单状态不允许此操作", null);
+        }
+
+        order.setStatus(OrderStatus.COMPLETED.toString());
+        orderService.updateById(order);
+        // 返回订单完成成功的响应，包含订单信息
+        return createResponse(HttpStatus.OK, "订单已完成", order);
+    }
+
+    /**
+     * 取消订单的处理。
+     *
+     * @param orderId 通过URL路径变量传递的订单ID，用于标识需要取消的订单。
+     * @param authentication 用户的认证信息，用于验证请求者的身份。
+     * @return 根据操作的结果返回不同的响应实体，包括订单未找到、用户未认证、订单状态不允许取消或取消成功的情况。
+     */
+    @PutMapping("/cancel/{orderId}")
+    public ResponseEntity<?> cancelOrder(@PathVariable Integer orderId, Authentication authentication) {
+        // 检查用户是否已认证，未认证返回401
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return createResponse(HttpStatus.UNAUTHORIZED, "未认证的用户", null);
+        }
+
+        // 根据订单ID获取订单，订单不存在返回404
+        Order order = orderService.getById(orderId);
+        if (order == null) {
+            return createResponse(HttpStatus.NOT_FOUND, "订单未找到", null);
+        }
+
+        // 检查订单状态是否允许取消，不允许则返回400
+        if (!OrderStatus.CREATED.toString().equals(order.getStatus()) && !OrderStatus.IN_PROGRESS.toString().equals(order.getStatus())) {
+            return createResponse(HttpStatus.BAD_REQUEST, "订单状态不允许此操作", null);
+        }
+
+        updateInventory(order, true); // 退还库存
+        refundUserBalance(order); // 退还用户余额
+        order.setStatus(OrderStatus.CANCELLED.toString());
+        orderService.updateById(order);
+        // 返回订单取消成功的响应
+        return createResponse(HttpStatus.OK, "订单已取消", order);
+    }
 
 
+    /**
+     * 处理订单退款请求。
+     *
+     * @param orderId  需要退款的订单ID，通过URL路径变量传递。
+     * @param authentication  当前请求的认证信息，用于验证用户身份。
+     * @return  根据操作结果返回不同的响应实体，包括订单退款成功、订单未找到、用户未认证、订单状态不允许退款等不同的状态码和消息。
+     */
+    @PutMapping("/refund/{orderId}")
+    public ResponseEntity<?> refundOrder(@PathVariable Integer orderId, Authentication authentication) {
+        // 检查用户是否已认证，未认证返回401
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return createResponse(HttpStatus.UNAUTHORIZED, "未认证的用户", null);
+        }
+
+        // 根据订单ID查询订单，未找到返回404
+        Order order = orderService.getById(orderId);
+        if (order == null) {
+            return createResponse(HttpStatus.NOT_FOUND, "订单未找到", null);
+        }
+
+        // 检查订单状态是否允许退款，不允许返回400
+        if (!OrderStatus.COMPLETED.toString().equals(order.getStatus())) {
+            return createResponse(HttpStatus.BAD_REQUEST, "订单状态不允许此操作", null);
+        }
+
+        updateInventory(order, true); // 退还库存
+        refundUserBalance(order); // 实际退款
+        order.setStatus(OrderStatus.REFUNDED.toString());
+        orderService.updateById(order);
+
+        // 退款成功，返回200和订单信息
+        return createResponse(HttpStatus.OK, "订单已退款", order);
+    }
+    /**
+     * 更新库存信息。
+     * 该方法根据订单中的商品详情，更新对应商品的库存数量。
+     * 如果是退款操作，则增加库存；否则减少库存。
+     *
+     * @param order 表示一个订单对象，用于获取订单详情和订单ID。
+     * @param isRefund 表示操作类型，true代表退款操作，false代表非退款操作（如正常购买）。
+     */
+    private void updateInventory(Order order, boolean isRefund) {
+        // 根据订单ID查询所有的订单详情
+        List<OrderDetail> orderDetails = orderDetailService.lambdaQuery().eq(OrderDetail::getOrderId, order.getOrderId()).list();
+        for (OrderDetail detail : orderDetails) {
+            // 尝试获取订单详情对应的菜单项
+            MenuItem item = menuItemService.getById(detail.getItemId());
+            if (item != null) {
+                // 根据操作类型计算新的库存数量
+                int newStock = isRefund ? item.getSizeStock() + detail.getQuantity() : item.getSizeStock() - detail.getQuantity();
+                // 更新菜单项的库存数量
+                item.setSizeStock(newStock);
+                // 保存更新后的菜单项信息
+                menuItemService.updateById(item);
+            }
+        }
+    }
+
+    /**
+     * 从用户余额中扣除订单费用。
+     * @param order 包含订单信息的对象，需要有用户ID和订单商品等信息。
+     * 该方法不返回任何值。
+     */
+    private void deductUserBalance(Order order) {
+        // 根据订单中的用户ID获取用户信息
+        User user = userService.getById(order.getUserId());
+        if (user != null) {
+            // 计算订单的总价
+            BigDecimal totalPrice = calculateTotalPrice(order);
+            // 从用户余额中扣除订单总价
+            user.setBalance(user.getBalance().subtract(totalPrice));
+            // 更新用户信息，将扣除余额后的余额保存
+            userService.updateById(user);
+        }
+    }
+
+
+    /**
+     * 为用户办理退款手续，将订单金额退还至用户余额。
+     * @param order 退款订单，包含用户ID和订单详情。
+     */
+    private void refundUserBalance(Order order) {
+        // 根据订单获取用户信息
+        User user = userService.getById(order.getUserId());
+        if (user != null) {
+            // 计算订单的总价格
+            BigDecimal totalPrice = calculateTotalPrice(order);
+            // 将订单总价格加到用户余额上，实现退款
+            user.setBalance(user.getBalance().add(totalPrice));
+            // 更新用户信息
+            userService.updateById(user);
+        }
+    }
+
+
+    /**
+     * 计算订单的总价格。
+     *
+     * @param order 订单对象，不可为null。
+     * @return 订单的总价格，返回一个BigDecimal类型，保证精确度。
+     */
+    private BigDecimal calculateTotalPrice(Order order) {
+        // 通过订单ID查询订单详情列表
+        List<OrderDetail> orderDetails = orderDetailService.lambdaQuery().eq(OrderDetail::getOrderId, order.getOrderId()).list();
+        // 细节：通过流处理订单详情，计算每项商品的价格乘以数量，然后累加得到订单总价
+        return orderDetails.stream()
+                .map(detail -> detail.getPrice().multiply(new BigDecimal(detail.getQuantity()))) // 计算商品总价
+                .reduce(BigDecimal.ZERO, BigDecimal::add); // 累加所有商品总价
+    }
 
 
 }

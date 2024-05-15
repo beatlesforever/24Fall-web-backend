@@ -1,5 +1,7 @@
 package com.example.backend.controller;
 
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.example.backend.entity.Review;
 import com.example.backend.service.IMenuItemService;
 import com.example.backend.service.IReviewService;
@@ -11,6 +13,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
 
+import java.math.BigDecimal;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.HashMap;
@@ -54,6 +57,11 @@ public class ReviewController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("未认证的用户");
         }
 
+        // 检查评分是否在合理范围内
+        if (review.getRating() == null || review.getRating() < 1 || review.getRating() > 5) {
+            return createResponse(HttpStatus.BAD_REQUEST, "评分必须在1到5之间", null);
+        }
+
         // 设置当前服务器时间为评价时间，确保评价时间的准确性
         review.setReviewTime(Timestamp.from(Instant.now()));
 
@@ -72,23 +80,35 @@ public class ReviewController {
 
 
     /**
-     * 修改评价
+     * 修改评价的API接口
      *
      * @param reviewId 评价的ID，用于指定要修改的评价
      * @param review 包含修改后评价信息的对象
      * @param authentication 当前用户的认证信息，用于权限验证
-     * @return 如果用户未认证，返回401状态码和"未认证的用户"消息；如果评价更新成功，返回200状态码和"评价更新成功"消息；如果评价未找到，返回404状态码。
+     * @return 根据操作结果返回不同的HTTP状态码和消息：
+     *         如果用户未认证，返回401状态码和"未认证的用户"消息；
+     *         如果评价更新成功，返回200状态码和"评价更新成功"消息；
+     *         如果评价未找到，返回404状态码。
      */
     @PutMapping("/{reviewId}")
     public ResponseEntity<?> updateReview(@PathVariable Integer reviewId, @RequestBody Review review, Authentication authentication) {
+        // 验证用户是否认证
         if (authentication == null || !authentication.isAuthenticated()) {
             return createResponse(HttpStatus.UNAUTHORIZED, "用户未认证", null);
         }
 
+        // 检查评分是否在合理范围内
+        if (review.getRating() == null || review.getRating() < 1 || review.getRating() > 5) {
+            return createResponse(HttpStatus.BAD_REQUEST, "评分必须在1到5之间", null);
+        }
+
+        // 设置评价ID
         review.setReviewId(reviewId);
-        // 更新评价
+
+        // 更新评价信息
         boolean updated = reviewService.updateById(review);
 
+        // 更新成功后，返回更新后的评价信息
         if (updated) {
             Review updatedReview = reviewService.getById(reviewId);
 
@@ -96,9 +116,11 @@ public class ReviewController {
             reviewData.put("review", updatedReview);
             return createResponse(HttpStatus.OK, "评价更新成功", reviewData);
         } else {
+            // 评价未找到时，返回错误信息
             return createResponse(HttpStatus.NOT_FOUND, "评价未找到", null);
         }
     }
+
 
 
     /**
@@ -113,6 +135,8 @@ public class ReviewController {
         if (authentication == null || !authentication.isAuthenticated()) {
             return createResponse(HttpStatus.UNAUTHORIZED, "用户未认证", null);
         }
+
+        // 删除评价
         boolean removed = reviewService.removeById(reviewId);
 
         if (removed) {
@@ -142,12 +166,15 @@ public class ReviewController {
             return createResponse(HttpStatus.NOT_FOUND, "菜品ID不存在", null);
         }
 
+        // 获取指定菜品ID的所有评价
         List<Review> reviews = reviewService.lambdaQuery().eq(Review::getItemId, itemId).list();
 
         Map<String, Object> responseData = new HashMap<>();
         responseData.put("reviews", reviews);
         return createResponse(HttpStatus.OK, "查询成功", responseData);
     }
+
+
     /**
      * 根据用户ID获取该用户的所有评价
      *
@@ -164,8 +191,10 @@ public class ReviewController {
         if (!userExists) {
             return createResponse(HttpStatus.NOT_FOUND, "用户ID不存在", null);
         }
+
         // 根据用户ID查询该用户的所有评价
         List<Review> reviews = reviewService.lambdaQuery().eq(Review::getUserId, userId).list();
+
 
         // 准备响应数据，包含评价列表
         Map<String, Object> responseData = new HashMap<>();
@@ -173,6 +202,43 @@ public class ReviewController {
 
         // 构建并返回响应实体，状态码为200 OK，附带查询成功的消息和查询结果
         return createResponse(HttpStatus.OK, "查询成功", responseData);
+    }
+
+
+    /**
+     * 获取指定菜品ID的评论统计信息
+     *
+     * @param itemId 菜品的ID，用于查询对应的评论统计数据
+     * @return ResponseEntity<Map<String, Object>> 返回一个包含评论统计信息的响应实体，
+     *         如果菜品ID不存在，则返回状态码为404的响应
+     *
+     */
+    @GetMapping("/item/{itemId}/statistics")
+    public ResponseEntity<Map<String, Object>> getReviewStatistics(@PathVariable Integer itemId) {
+        // 检查菜品是否存在
+        boolean itemExists = menuItemService.getById(itemId) != null;
+        if (!itemExists) {
+            return createResponse(HttpStatus.NOT_FOUND, "菜品ID不存在", null);
+        }
+
+        // 计算平均评分
+        QueryWrapper<Review> avgWrapper = Wrappers.query();
+        avgWrapper.select("AVG(rating) as avgRating")
+                .eq("item_id", itemId);
+        Map<String, Object> avgResult = reviewService.getMap(avgWrapper);
+        BigDecimal avgRatingDecimal = avgResult != null ? (BigDecimal) avgResult.get("avgRating") : BigDecimal.ZERO;
+        Double averageRating = avgRatingDecimal.doubleValue();
+
+        // 统计评价数量
+        long totalReviews = reviewService.lambdaQuery()
+                .eq(Review::getItemId, itemId)
+                .count();
+
+        // 构建并返回评论统计信息
+        Map<String, Object> responseData = new HashMap<>();
+        responseData.put("averageRating", averageRating);
+        responseData.put("totalReviews", totalReviews);
+        return createResponse(HttpStatus.OK, "统计成功", responseData);
     }
 
 }

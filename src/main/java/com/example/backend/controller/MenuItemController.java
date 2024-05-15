@@ -100,9 +100,35 @@ public class MenuItemController {
 
         menuItem.setItemId(itemId);
         menuItemService.updateById(menuItem);
-        return createResponse(HttpStatus.OK, "菜单项更新成功", null);
+        MenuItem updatedItem = menuItemService.getById(itemId); // 获取更新后的菜单项
+        return createResponse(HttpStatus.OK, "菜单项更新成功", updatedItem);
     }
 
+    /**
+     * 搜索菜单项信息。
+     *
+     * @param query 搜索关键词，通过URL查询参数传递。
+     * @param authentication 当前请求的认证信息，用于权限验证。
+     * @return 返回包含搜索结果的ResponseEntity，如果没有找到，则返回空列表。
+     *         如果用户未认证，返回401状态码。
+     */
+    @GetMapping("/search")
+    public ResponseEntity<?> searchMenuItems(@RequestParam String query, Authentication authentication) {
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return createResponse(HttpStatus.UNAUTHORIZED, "用户未认证", null);
+        }
+
+        // 使用MyBatis-Plus的lambda查询构建器进行模糊查询
+        List<MenuItem> items = menuItemService.lambdaQuery()
+                .like(MenuItem::getName, query)
+                .or()
+                .like(MenuItem::getDescription, query)
+                .or()
+                .like(MenuItem::getCategory, query)
+                .list();
+
+        return createResponse(HttpStatus.OK, "搜索菜单项成功", items);
+    }
 
     /**
      * 通过POST请求添加新的菜单项。
@@ -120,7 +146,7 @@ public class MenuItemController {
         }
 
         menuItemService.save(menuItem);
-        return createResponse(HttpStatus.OK, "菜单项添加成功", null);
+        return createResponse(HttpStatus.OK, "菜单项添加成功", menuItem);
     }
 
     /**
