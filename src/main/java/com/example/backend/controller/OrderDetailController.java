@@ -1,9 +1,6 @@
 package com.example.backend.controller;
 
-import com.example.backend.entity.MenuItem;
-import com.example.backend.entity.Order;
-import com.example.backend.entity.OrderDetail;
-import com.example.backend.entity.User;
+import com.example.backend.entity.*;
 import com.example.backend.service.IMenuItemService;
 import com.example.backend.service.IOrderDetailService;
 import com.example.backend.service.IOrderService;
@@ -101,6 +98,11 @@ public class OrderDetailController {
             return createResponse(HttpStatus.BAD_REQUEST, "订单不存在", null);
         }
 
+        // 检查订单状态是否为已创建
+        if (!OrderStatus.CREATED.toString().equals(order.getStatus())) {
+            return createResponse(HttpStatus.BAD_REQUEST, "订单状态不允许此操作", null);
+        }
+
         // 检查菜品是否存在
         MenuItem item = menuItemService.getById(orderDetail.getItemId());
         if (item == null) {
@@ -168,12 +170,16 @@ public class OrderDetailController {
             return createResponse(HttpStatus.BAD_REQUEST, "订单不存在", null);
         }
 
+        // 检查订单状态是否为已创建
+        if (!OrderStatus.CREATED.toString().equals(order.getStatus())) {
+            return createResponse(HttpStatus.BAD_REQUEST, "订单状态不允许此操作", null);
+        }
+
         // 验证订单详情是否存在
         OrderDetail orderDetail = orderDetailService.getById(orderDetailId);
         if (orderDetail == null) {
             return createResponse(HttpStatus.BAD_REQUEST, "订单详情不存在", null);
         }
-
         // 确认订单详情属于正确的订单
         if (!orderDetail.getOrderId().equals(orderId)) {
             return createResponse(HttpStatus.BAD_REQUEST, "订单详情不属于该订单", null);
@@ -208,6 +214,11 @@ public class OrderDetailController {
         Order order = orderService.getById(orderId);
         if (order == null) {
             return createResponse(HttpStatus.BAD_REQUEST, "订单不存在", null);
+        }
+
+        // 检查订单状态是否为已创建
+        if (!OrderStatus.CREATED.toString().equals(order.getStatus())) {
+            return createResponse(HttpStatus.BAD_REQUEST, "订单状态不允许此操作", null);
         }
 
         // 检查订单详情是否存在

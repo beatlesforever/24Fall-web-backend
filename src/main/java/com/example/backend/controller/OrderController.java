@@ -2,10 +2,7 @@ package com.example.backend.controller;
 
 import com.example.backend.dto.OrderStatusDTO;
 import com.example.backend.entity.*;
-import com.example.backend.service.IMenuItemService;
-import com.example.backend.service.IOrderDetailService;
-import com.example.backend.service.IOrderService;
-import com.example.backend.service.IUserService;
+import com.example.backend.service.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -15,6 +12,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
 import java.sql.Timestamp;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -36,6 +34,11 @@ public class OrderController {
     IMenuItemService menuItemService;
     @Autowired
     IUserService userService;
+    @Autowired
+    ICouponService couponService;
+
+    @Autowired
+    IUserCouponService userCouponService;
     private ResponseEntity<Map<String, Object>> createResponse(HttpStatus status, String message, Object data) {
         Map<String, Object> responseBody = new HashMap<>();
         responseBody.put("status", status.value() + " " + status.getReasonPhrase());
@@ -65,7 +68,7 @@ public class OrderController {
         // 保存订单到数据库
         orderService.save(order);
 
-// 准备订单创建成功后返回的数据
+        // 准备订单创建成功后返回的数据
         Map<String, Object> data = new HashMap<>();
         data.put("orderId", order.getOrderId());
         data.put("userId", order.getUserId());
@@ -226,15 +229,18 @@ public class OrderController {
         // 返回统计信息
         return createResponse(HttpStatus.OK, "订单统计信息获取成功", stats);
     }
+
     /**
-     * 确认订单的接口。
+     * 确认订单操作。
      *
-     * @param orderId 订单ID，通过URL路径变量传递。
-     * @param authentication 当前用户的认证信息，用于权限验证。
-     * @return 根据操作结果返回不同的响应实体，包括订单确认成功、未认证的用户、订单未找到或订单状态不允许确认等情形。
+     * @param orderId 订单ID，路径变量。用于确定要确认的订单。
+     * @param userCouponId 优惠券ID，可选查询参数，用于应用优惠券折扣。
+     * @param authentication 用户认证信息，用于验证用户是否已认证。
+     * @return ResponseEntity<?> 返回HTTP响应实体，包含订单确认结果。
+     *         通过不同的HTTP状态码和消息体，告知客户端订单确认的结果。
      */
     @PutMapping("/confirm/{orderId}")
-    public ResponseEntity<?> confirmOrder(@PathVariable Integer orderId, Authentication authentication) {
+    public ResponseEntity<?> confirmOrder(@PathVariable Integer orderId, @RequestParam(required = false) Integer userCouponId, Authentication authentication) {
         // 验证用户是否已认证，未认证返回401
         if (authentication == null || !authentication.isAuthenticated()) {
             return createResponse(HttpStatus.UNAUTHORIZED, "未认证的用户", null);
@@ -251,13 +257,49 @@ public class OrderController {
             return createResponse(HttpStatus.BAD_REQUEST, "订单状态不允许此操作", null);
         }
 
-        updateInventory(order, false); // 减少库存
-        deductUserBalance(order); // 扣除用户余额
+        // 如果提供了优惠券ID，则尝试应用优惠券折扣
+        BigDecimal discount = BigDecimal.ZERO;
+        if (userCouponId != null) {
+            // 验证优惠券有效性并计算折扣
+            UserCoupon userCoupon = userCouponService.getById(userCouponId);
+            if (userCoupon == null || userCoupon.getIsUsed()) {
+                return createResponse(HttpStatus.BAD_REQUEST, "无效的用户优惠券", null);
+            }
+
+            Coupon coupon = couponService.getById(userCoupon.getCouponId());
+            if (coupon == null || !coupon.getIsActive() || coupon.getExpirationDate().before(new Date())) {
+                return createResponse(HttpStatus.BAD_REQUEST, "无效或过期的优惠券", null);
+            }
+
+            // 检查订单总价是否满足优惠券的最低消费金额
+            BigDecimal totalOrderPrice = calculateTotalPrice(order);
+            if (totalOrderPrice.compareTo(coupon.getMinPurchase()) < 0) {
+                return createResponse(HttpStatus.BAD_REQUEST, "订单总价未达到优惠券的最低消费金额", null);
+            }
+
+            // 应用优惠券折扣
+            discount = coupon.getDiscount();
+
+            // 标记用户优惠券为已使用
+            userCoupon.setIsUsed(true);
+            userCouponService.updateById(userCoupon);
+
+            // 更新订单总价格
+            BigDecimal newTotalPrice = totalOrderPrice.subtract(discount);
+            order.setTotalPrice(newTotalPrice);
+        }
+
+        // 更新订单状态为进行中，减少库存并扣除用户余额（考虑优惠券折扣）
+        updateInventory(order, false);
+        deductUserBalance(order);
         order.setStatus(OrderStatus.IN_PROGRESS.toString());
         orderService.updateById(order);
+
         // 订单确认成功，返回200
         return createResponse(HttpStatus.OK, "订单确认成功", order);
     }
+
+
 
     /**
      * 完成指定订单的操作。
@@ -388,17 +430,18 @@ public class OrderController {
      * 该方法不返回任何值。
      */
     private void deductUserBalance(Order order) {
-        // 根据订单中的用户ID获取用户信息
+// 根据订单中的用户ID获取用户信息
         User user = userService.getById(order.getUserId());
         if (user != null) {
-            // 计算订单的总价
-            BigDecimal totalPrice = calculateTotalPrice(order);
+            // 直接使用订单的总价格
+            BigDecimal totalPrice = order.getTotalPrice();
             // 从用户余额中扣除订单总价
             user.setBalance(user.getBalance().subtract(totalPrice));
             // 更新用户信息，将扣除余额后的余额保存
             userService.updateById(user);
         }
     }
+
 
 
     /**
