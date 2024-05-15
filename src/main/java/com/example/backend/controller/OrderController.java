@@ -477,5 +477,44 @@ public class OrderController {
                 .reduce(BigDecimal.ZERO, BigDecimal::add); // 累加所有商品总价
     }
 
+    /**
+     * 获取指定用户的已完成订单。
+     *
+     * @param userId 用户ID，通过路径变量传递。
+     * @param authentication 当前请求的认证信息，用于权限验证。
+     * @return 返回包含该用户所有已完成订单的响应实体。如果用户没有已完成订单，则返回空列表。
+     *         如果用户未进行认证，返回401未授权状态。
+     */
+    @GetMapping("/user/{userId}/completed")
+    public ResponseEntity<?> getCompletedOrders(@PathVariable Integer userId, Authentication authentication) {
+        // 验证用户是否认证
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return createResponse(HttpStatus.UNAUTHORIZED, "用户未认证", null);
+        }
+        // 根据用户ID查询已完成订单
+        List<Order> completedOrders = orderService.lambdaQuery()
+                .eq(Order::getUserId, userId)
+                .eq(Order::getStatus, OrderStatus.COMPLETED.toString())
+                .list();
 
+        // 将订单信息转换为简洁的Map格式
+        List<Map<String, Object>> orderDetails = completedOrders.stream().map(order -> {
+            Map<String, Object> detail = new HashMap<>();
+            detail.put("orderId", order.getOrderId());
+            detail.put("userId", order.getUserId());
+            detail.put("storeId", order.getStoreId());
+            detail.put("status", order.getStatus());
+            detail.put("totalPrice", order.getTotalPrice());
+            detail.put("orderTime", order.getOrderTime().toString());
+            detail.put("notes", order.getNotes());
+            detail.put("dineOption", order.getDineOption());
+            return detail;
+        }).collect(Collectors.toList());
+
+        // 准备返回的数据结构
+        Map<String, Object> data = new HashMap<>();
+        data.put("orders", orderDetails);
+        // 构造成功返回的响应实体
+        return createResponse(HttpStatus.OK, "用户已完成订单列表获取成功", data);
+    }
 }
