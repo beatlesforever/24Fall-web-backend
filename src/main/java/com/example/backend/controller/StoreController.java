@@ -6,11 +6,14 @@ import com.example.backend.service.IUserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.annotation.Secured;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
+import static com.example.backend.entity.Roles.ADMIN;
 
 /**
  * @author zhouhaoran
@@ -38,6 +41,7 @@ public class StoreController {
      * @param store 包含商店信息的请求体，通过RequestBody接收
      * @return 返回一个响应实体，包含创建成功后的商店信息和HTTP状态码
      */
+    @Secured(ADMIN)
     @PostMapping
     public ResponseEntity<Map<String, Object>> createStore(@RequestBody Store store) {
         if (store == null || store.getName() == null || store.getLocation() == null) {
@@ -55,6 +59,7 @@ public class StoreController {
      * @param store 更新后的商店对象，通过RequestBody接收前端传来的数据。
      * @return 返回响应实体，包含更新后的商店对象和状态码200 OK。
      */
+    @Secured(ADMIN)
     @PutMapping("/{storeId}")
     public ResponseEntity<Map<String, Object>> updateStore(@PathVariable Integer storeId, @RequestBody Store store) {
         if (store == null || store.getName() == null || store.getLocation() == null) {
@@ -79,6 +84,7 @@ public class StoreController {
      * @param storeId 商店ID，通过路径变量传递。
      * @return 返回响应实体，包含状态码200 OK表示删除成功，404 Not Found表示商店未找到。
      */
+    @Secured(ADMIN)
     @DeleteMapping("/{storeId}")
     public ResponseEntity<Map<String, Object>> deleteStore(@PathVariable Integer storeId) {
         if (storeId == null) {

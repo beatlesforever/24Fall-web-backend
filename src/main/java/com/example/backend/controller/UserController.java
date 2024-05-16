@@ -16,6 +16,7 @@ import org.springframework.security.core.Authentication;
 
 import java.math.BigDecimal;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import static com.example.backend.entity.Roles.ADMIN;
@@ -186,5 +187,24 @@ public class UserController {
         // 根据重置密码的结果，返回相应的ResponseEntity
         return success ? createResponse(HttpStatus.OK, "密码重置成功", null) : createResponse(HttpStatus.BAD_REQUEST, "密码重置失败", null);
     }
+
+    /**
+     * 获取所有用户信息。
+     * 仅管理员角色（ADMIN）有权限访问此接口。
+     *
+     * @param authentication 用户的认证信息，用于验证用户身份。
+     * @return 返回一个响应实体，包含所有用户的列表。如果用户未认证或没有权限，返回401或403状态码。
+     */
+    @Secured(ADMIN)
+    @GetMapping
+    public ResponseEntity<?> getAllUsers(Authentication authentication) {
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return createResponse(HttpStatus.UNAUTHORIZED, "用户未认证", null);
+        }
+
+        List<User> users = userService.list();
+        return createResponse(HttpStatus.OK, "获取所有用户成功", users);
+    }
+
 
 }

@@ -8,11 +8,14 @@ import com.example.backend.service.IUserCouponService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.annotation.Secured;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.security.SecureRandom;
 import java.util.*;
+
+import static com.example.backend.entity.Roles.ADMIN;
 
 /**
  * @author zhouhaoran
@@ -77,6 +80,7 @@ public class CouponController {
      * @param coupon 包含优惠券信息的请求体，通过RequestBody接收
      * @return 返回一个响应实体，包含创建成功后的优惠券信息和HTTP状态码
      */
+    @Secured(ADMIN)
     @PostMapping
     public ResponseEntity<Map<String, Object>> createCoupon(@RequestBody Coupon coupon,Authentication authentication) {
         if (authentication == null || !authentication.isAuthenticated()) {
@@ -106,6 +110,7 @@ public class CouponController {
      * @param coupon 更新后的优惠券对象，通过RequestBody接收前端传来的数据。
      * @return 返回响应实体，包含更新后的优惠券对象和状态码200 OK。
      */
+    @Secured(ADMIN)
     @PutMapping("/{couponId}")
     public ResponseEntity<Map<String, Object>> updateCoupon(@PathVariable Integer couponId, @RequestBody Coupon coupon,Authentication authentication) {
         if (authentication == null || !authentication.isAuthenticated()) {
@@ -141,6 +146,7 @@ public class CouponController {
      * @param couponId 优惠券ID，通过路径变量传递。
      * @return 返回响应实体，包含状态码200 OK表示删除成功，404 Not Found表示优惠券未找到。
      */
+    @Secured(ADMIN)
     @DeleteMapping("/{couponId}")
     public ResponseEntity<Map<String, Object>> deleteCoupon(@PathVariable Integer couponId,Authentication authentication) {
         if (authentication == null || !authentication.isAuthenticated()) {
@@ -236,6 +242,7 @@ public class CouponController {
      * @param coupons 包含多个优惠券信息的请求体，通过RequestBody接收
      * @return 返回一个响应实体，包含创建成功后的优惠券信息和HTTP状态码
      */
+    @Secured(ADMIN)
     @PostMapping("/batch")
     public ResponseEntity<Map<String, Object>> createCouponsBatch(@RequestBody List<Coupon> coupons,Authentication authentication) {
         if (authentication == null || !authentication.isAuthenticated()) {
