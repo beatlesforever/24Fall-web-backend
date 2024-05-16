@@ -66,13 +66,10 @@ public class UserController {
      */
     @PostMapping("/register")
     public ResponseEntity<Map<String, Object>> registerUser(@RequestBody UserRegisterDTO userRegisterDTO) {
-        // 检查用户注册的角色是否有效，仅支持管理员和普通用户注册
-        if (!ADMIN.equals(userRegisterDTO.getRole()) && !Roles.CUSTOMER.equals(userRegisterDTO.getRole())) {
-            return createResponse(HttpStatus.BAD_REQUEST, "无效的角色类型", null);
-        }
-
+        // 设置默认角色为 customer
         // 调用userService完成用户注册逻辑，并根据结果返回相应的响应实体
-        boolean isRegistered = userService.register(userRegisterDTO, userRegisterDTO.getRole());
+        boolean isRegistered = userService.register(userRegisterDTO, CUSTOMER);
+
         if (isRegistered) {
             return createResponse(HttpStatus.OK, "用户注册成功", null);
         } else {

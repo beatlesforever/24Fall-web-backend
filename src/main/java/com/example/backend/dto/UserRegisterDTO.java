@@ -12,6 +12,4 @@ public class UserRegisterDTO {
     private String name;
     private String phone;
     private String password;
-    private String role; // 新增角色字段
-
 }
