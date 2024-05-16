@@ -75,6 +75,23 @@ public class MenuItemController {
         return item != null ? createResponse(HttpStatus.OK, "获取菜单项成功", item) : createResponse(HttpStatus.NOT_FOUND, "菜单项不存在", null);
     }
 
+    /**
+     * 获取某店铺的所有菜单项。
+     *
+     * @param storeId 店铺ID，通过路径变量传递。
+     * @param authentication 用户的认证信息，用于验证用户身份。
+     * @return 返回一个响应实体，包含该店铺所有菜单项的列表。如果用户未认证，返回401状态码。
+     */
+    @GetMapping("/store/{storeId}")
+    public ResponseEntity<?> getMenuItemsByStore(@PathVariable Integer storeId, Authentication authentication) {
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return createResponse(HttpStatus.UNAUTHORIZED, "用户未认证", null);
+        }
+
+        // 查询某店铺的所有菜单项
+        List<MenuItem> items = menuItemService.lambdaQuery().eq(MenuItem::getStoreId, storeId).list();
+        return createResponse(HttpStatus.OK, "获取店铺菜单项成功", items);
+    }
 
     /**
      * 通过PUT请求更新一个现有的菜单项。
