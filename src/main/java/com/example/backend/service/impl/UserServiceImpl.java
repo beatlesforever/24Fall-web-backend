@@ -18,6 +18,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.sql.Timestamp;
 import java.util.Collections;
 import java.util.Date;
 
@@ -54,7 +55,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
         user.setName(userRegisterDTO.getName());
         user.setPhone(userRegisterDTO.getPhone());
         user.setPassword(passwordEncoder.encode(userRegisterDTO.getPassword())); // 加密密码
-        user.setRegistrationDate(new Date());
+        user.setRegistrationDate(new Timestamp(System.currentTimeMillis()));
+        System.out.println("注册成功: " + user);
         user.setBalance(java.math.BigDecimal.ZERO); // 设置初始余额为0
         user.setRole(role); // 设置用户角色
         userMapper.insert(user);

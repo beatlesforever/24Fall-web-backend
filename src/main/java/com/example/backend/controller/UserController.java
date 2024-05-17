@@ -99,6 +99,7 @@ public class UserController {
         UserDetails userDetails = (UserDetails) authentication.getPrincipal();
         String phone = userDetails.getUsername();
         User user = userService.findByPhone(phone);
+        System.out.println(user);
         if (user != null) {
             return createResponse(HttpStatus.OK, "用户信息获取成功", user);
         } else {

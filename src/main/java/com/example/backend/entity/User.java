@@ -8,6 +8,7 @@ import lombok.Data;
 
 
 import java.math.BigDecimal;
+import java.sql.Timestamp;
 import java.util.Date;
 
 @Data
@@ -19,7 +20,7 @@ public class User{
     private String phone;
     @JsonIgnore // 这会阻止密码被序列化到JSON
     private String password;
-    private Date registrationDate;
+    private Timestamp registrationDate;
     private BigDecimal balance;
     private String role; // 新增角色字段
 

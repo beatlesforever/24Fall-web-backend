@@ -75,7 +75,7 @@ public class OrderController {
         data.put("storeId", order.getStoreId());
         data.put("status", order.getStatus());
         data.put("totalPrice", order.getTotalPrice());
-        data.put("orderTime", order.getOrderTime().toString());
+        data.put("orderTime", order.getOrderTime());
         data.put("notes", order.getNotes());
         data.put("dineOption", order.getDineOption());
 
@@ -112,7 +112,7 @@ public class OrderController {
         data.put("storeId", order.getStoreId());
         data.put("status", order.getStatus());
         data.put("totalPrice", order.getTotalPrice());
-        data.put("orderTime", order.getOrderTime().toString());
+        data.put("orderTime", order.getOrderTime());
         data.put("notes", order.getNotes());
         data.put("dineOption", order.getDineOption());
 
@@ -147,7 +147,7 @@ public class OrderController {
             detail.put("storeId", order.getStoreId());
             detail.put("status", order.getStatus());
             detail.put("totalPrice", order.getTotalPrice());
-            detail.put("orderTime", order.getOrderTime().toString());
+            detail.put("orderTime", order.getOrderTime());
             detail.put("notes", order.getNotes());
             detail.put("dineOption", order.getDineOption());
             return detail;
@@ -174,7 +174,7 @@ public class OrderController {
             detail.put("storeId", order.getStoreId());
             detail.put("status", order.getStatus());
             detail.put("totalPrice", order.getTotalPrice());
-            detail.put("orderTime", order.getOrderTime().toString());
+            detail.put("orderTime", order.getOrderTime());
             detail.put("notes", order.getNotes());
             detail.put("dineOption", order.getDineOption());
             return detail;
@@ -505,7 +505,7 @@ public class OrderController {
             detail.put("storeId", order.getStoreId());
             detail.put("status", order.getStatus());
             detail.put("totalPrice", order.getTotalPrice());
-            detail.put("orderTime", order.getOrderTime().toString());
+            detail.put("orderTime", order.getOrderTime());
             detail.put("notes", order.getNotes());
             detail.put("dineOption", order.getDineOption());
             return detail;
