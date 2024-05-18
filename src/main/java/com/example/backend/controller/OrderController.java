@@ -517,4 +517,46 @@ public class OrderController {
         // 构造成功返回的响应实体
         return createResponse(HttpStatus.OK, "用户已完成订单列表获取成功", data);
     }
+
+    /**
+     * 获取某家店铺的所有进行中订单。
+     *
+     * @param storeId 店铺ID，通过路径变量传递。
+     * @param authentication 当前请求的认证信息，用于权限验证。
+     * @return 返回包含该店铺所有进行中订单的响应实体。如果店铺没有进行中订单，则返回空列表。
+     *         如果用户未进行认证，返回401未授权状态。
+     */
+    @GetMapping("/store/{storeId}/in-progress")
+    public ResponseEntity<?> getInProgressOrders(@PathVariable Integer storeId, Authentication authentication) {
+        // 验证用户是否认证
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return createResponse(HttpStatus.UNAUTHORIZED, "用户未认证", null);
+        }
+
+        // 根据店铺ID查询进行中订单
+        List<Order> inProgressOrders = orderService.lambdaQuery()
+                .eq(Order::getStoreId, storeId)
+                .eq(Order::getStatus, OrderStatus.IN_PROGRESS.toString())
+                .list();
+
+        // 将订单信息转换为简洁的Map格式
+        List<Map<String, Object>> orderDetails = inProgressOrders.stream().map(order -> {
+            Map<String, Object> detail = new HashMap<>();
+            detail.put("orderId", order.getOrderId());
+            detail.put("userId", order.getUserId());
+            detail.put("storeId", order.getStoreId());
+            detail.put("status", order.getStatus());
+            detail.put("totalPrice", order.getTotalPrice());
+            detail.put("orderTime", order.getOrderTime());
+            detail.put("notes", order.getNotes());
+            detail.put("dineOption", order.getDineOption());
+            return detail;
+        }).collect(Collectors.toList());
+
+        // 准备返回的数据结构
+        Map<String, Object> data = new HashMap<>();
+        data.put("orders", orderDetails);
+        // 构造成功返回的响应实体
+        return createResponse(HttpStatus.OK, "店铺进行中订单列表获取成功", data);
+    }
 }

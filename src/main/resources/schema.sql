@@ -36,7 +36,7 @@ CREATE TABLE orders (
                         order_id INT PRIMARY KEY AUTO_INCREMENT, -- 订单ID，唯一标识
                         user_id INT NOT NULL, -- 用户ID，外键
                         store_id INT NOT NULL, -- 店铺ID，外键
-                        status VARCHAR(50) NOT NULL, -- 订单状态(已创建、已确认、进行中、已完成、已取消)
+                        status VARCHAR(50) NOT NULL, -- 订单状态(已创建、进行中、已完成、已取消)
                         total_price DECIMAL(10, 2) NOT NULL, -- 总价
                         order_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, -- 下单时间
                         notes TEXT, -- 备注
