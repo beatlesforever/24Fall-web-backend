@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.security.SecureRandom;
 import java.util.*;
+import java.util.stream.Collectors;
 
 import static com.example.backend.entity.Roles.ADMIN;
 
@@ -30,8 +31,6 @@ public class CouponController {
 
     @Autowired
     IUserCouponService userCouponService;
-    private static final Random RANDOM = new SecureRandom();
-    private static final int CODE_LENGTH = 4;
 
     private ResponseEntity<Map<String, Object>> createResponse(HttpStatus status, String message, Object data) {
         Map<String, Object> responseBody = new HashMap<>();
@@ -39,38 +38,6 @@ public class CouponController {
         responseBody.put("message", message);
         responseBody.put("data", data);
         return new ResponseEntity<>(responseBody, status);
-    }
-
-    /**
-     * 生成唯一的4位数字优惠券代码
-     * 该函数没有参数。
-     * @return 返回生成的唯一4位数字优惠券代码。代码是4位数字格式，通过生成随机代码并检查其唯一性来确保唯一。
-     */
-    private String generateUniqueCode() {
-        String code;
-        do {
-            // 生成一个随机的4位数字优惠券代码
-            code = generateRandomCode();
-        // 检查生成的代码是否已存在，如果存在，则重新生成
-        } while (couponService.lambdaQuery().eq(Coupon::getCode, code).count() > 0);
-        return code;
-    }
-
-
-    /**
-     * 生成随机的4位数字优惠券代码
-     *
-     * @return 返回生成的随机4位数字优惠券代码。代码由0-9的数字组成，长度为4。
-     */
-    private String generateRandomCode() {
-        // 初始化一个StringBuilder，长度为CODE_LENGTH（假设CODE_LENGTH为4）
-        StringBuilder code = new StringBuilder(CODE_LENGTH);
-        // 循环生成随机数字并添加到StringBuilder中，直到达到指定长度
-        for (int i = 0; i < CODE_LENGTH; i++) {
-            code.append(RANDOM.nextInt(10)); // 生成并添加一个0-9之间的随机数字
-        }
-        // 将StringBuilder内容转换为String并返回
-        return code.toString();
     }
 
 
@@ -91,9 +58,6 @@ public class CouponController {
         if (coupon == null || coupon.getDiscount() == null || coupon.getExpirationDate() == null || coupon.getMinPurchase() == null) {
             return createResponse(HttpStatus.BAD_REQUEST, "无效的优惠券参数", null);
         }
-
-        // 生成唯一的4位数字优惠券代码
-        coupon.setCode(generateUniqueCode());
 
         // 保存优惠券到服务端
         couponService.save(coupon);
@@ -213,28 +177,6 @@ public class CouponController {
         return createResponse(HttpStatus.OK, "查询成功", activeCoupons);
     }
 
-    /**
-     * 使用优惠券代码获取优惠券详情。
-     *
-     * @param code 优惠券代码，通过请求参数传递。
-     * @return 返回响应实体，包含优惠券对象和状态码200 OK，或状态码404 Not Found表示未找到。
-     */
-    @GetMapping("/code/{code}")
-    public ResponseEntity<Map<String, Object>> getCouponByCode(@PathVariable String code,Authentication authentication) {
-        if (authentication == null || !authentication.isAuthenticated()) {
-            return createResponse(HttpStatus.UNAUTHORIZED, "用户未认证", null);
-        }
-        if (code == null || code.trim().isEmpty()) {
-            return createResponse(HttpStatus.BAD_REQUEST, "无效的优惠券代码", null);
-        }
-
-        Coupon coupon = couponService.lambdaQuery().eq(Coupon::getCode, code).one();
-        if (coupon != null) {
-            return createResponse(HttpStatus.OK, "查询成功", coupon);
-        } else {
-            return createResponse(HttpStatus.NOT_FOUND, "优惠券未找到", null);
-        }
-    }
 
     /**
      * 批量创建优惠券
@@ -257,11 +199,34 @@ public class CouponController {
             if (coupon.getDiscount() == null || coupon.getExpirationDate() == null || coupon.getMinPurchase() == null) {
                 return createResponse(HttpStatus.BAD_REQUEST, "优惠券参数无效", null);
             }
-            coupon.setCode(generateUniqueCode());
         }
 
         couponService.saveBatch(coupons);
         return createResponse(HttpStatus.CREATED, "优惠券批量创建成功", coupons);
     }
+
+    /**
+     * 获取所有未领取的优惠券
+     *
+     * @param authentication 当前用户的认证信息，用于权限验证
+     * @return 返回一个响应实体，包含所有未领取的优惠券信息和HTTP状态码。如果用户未认证，返回401状态码；如果查询成功，返回200状态码和未领取的优惠券列表。
+     */
+    @GetMapping("/unclaimed")
+    public ResponseEntity<Map<String, Object>> getUnclaimedCoupons(Authentication authentication) {
+        // 权限验证：检查用户是否已认证，未认证返回401
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return createResponse(HttpStatus.UNAUTHORIZED, "用户未认证", null);
+        }
+
+        // 查询所有未领取的优惠券逻辑
+        // 首先获取所有优惠券，然后通过lambda查询表达式过滤出用户未领取的优惠券
+        List<Coupon> unclaimedCoupons = couponService.list().stream()
+                .filter(coupon -> userCouponService.lambdaQuery().eq(UserCoupon::getCouponId, coupon.getCouponId()).count() == 0)
+                .collect(Collectors.toList());
+
+        // 构造并返回响应实体，包含查询结果
+        return createResponse(HttpStatus.OK, "查询成功", unclaimedCoupons);
+    }
+
 
 }

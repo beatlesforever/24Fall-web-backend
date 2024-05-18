@@ -280,8 +280,9 @@ public class OrderController {
             // 应用优惠券折扣
             discount = coupon.getDiscount();
 
-            // 标记用户优惠券为已使用
+            // 标记用户优惠券为已使用并记录订单ID
             userCoupon.setIsUsed(true);
+            userCoupon.setOrderId(orderId);
             userCouponService.updateById(userCoupon);
 
             // 更新订单总价格
@@ -359,6 +360,7 @@ public class OrderController {
 
         updateInventory(order, true); // 退还库存
         refundUserBalance(order); // 退还用户余额
+        resetUserCoupon(orderId); // 重置优惠券状态为未使用
         order.setStatus(OrderStatus.CANCELLED.toString());
         orderService.updateById(order);
         // 返回订单取消成功的响应
@@ -393,6 +395,7 @@ public class OrderController {
 
         updateInventory(order, true); // 退还库存
         refundUserBalance(order); // 实际退款
+        resetUserCoupon(orderId); // 重置优惠券状态为未使用
         order.setStatus(OrderStatus.REFUNDED.toString());
         orderService.updateById(order);
 
@@ -430,7 +433,7 @@ public class OrderController {
      * 该方法不返回任何值。
      */
     private void deductUserBalance(Order order) {
-// 根据订单中的用户ID获取用户信息
+        // 根据订单中的用户ID获取用户信息
         User user = userService.getById(order.getUserId());
         if (user != null) {
             // 直接使用订单的总价格
@@ -442,6 +445,26 @@ public class OrderController {
         }
     }
 
+    /**
+     * 重置订单中使用的优惠券状态为未使用。
+     * 该方法通过订单ID找出所有已使用的用户优惠券，并将它们的状态重置为未使用，同时清除它们与订单的关联。
+     *
+     * @param orderId 订单ID，用于获取相关的用户优惠券信息。
+     */
+    private void resetUserCoupon(Integer orderId) {
+        // 查询当前订单中所有已使用的用户优惠券
+        List<UserCoupon> userCoupons = userCouponService.lambdaQuery()
+                .eq(UserCoupon::getOrderId, orderId)
+                .eq(UserCoupon::getIsUsed, true)
+                .list();
+
+        // 遍历查询结果，将优惠券状态重置，并清除与订单的关联
+        for (UserCoupon userCoupon : userCoupons) {
+            userCoupon.setIsUsed(false);
+            userCoupon.setOrderId(null); // 清除关联的订单ID
+            userCouponService.updateById(userCoupon);
+        }
+    }
 
 
     /**

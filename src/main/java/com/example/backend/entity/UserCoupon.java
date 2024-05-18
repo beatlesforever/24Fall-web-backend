@@ -17,6 +17,8 @@ public class UserCoupon {
     private Integer userCouponId;
     private Integer userId;
     private Integer couponId;
-    private Boolean isUsed;
+    private Boolean isUsed; // 是否已使用
+    private Integer orderId; // 使用优惠券的订单ID
+
 }
 

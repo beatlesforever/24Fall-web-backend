@@ -24,12 +24,6 @@ public class Coupon {
     private Integer couponId;
 
     /**
-     * 优惠券代码，用户在购物时输入以获得折扣。
-     * 例如：DISCOUNT2024
-     */
-    private String code;
-
-    /**
      * 折扣金额，表示优惠券可以抵扣的金额。
      * 使用BigDecimal以确保精确度。
      */
