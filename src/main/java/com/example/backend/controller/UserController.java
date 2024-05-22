@@ -208,4 +208,36 @@ public class UserController {
     }
 
 
+    /**
+     * 根据用户ID获取用户信息
+     *
+     * @param userId 用户ID，通过路径变量传递
+     * @param authentication 当前用户的认证信息，用于确认用户身份
+     * @return 返回包含用户信息的响应实体
+     */
+    @GetMapping("/{userId}")
+    public ResponseEntity<Map<String, Object>> getUserById(@PathVariable Integer userId, Authentication authentication) {
+        // 检查用户认证信息是否合法
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return createResponse(HttpStatus.UNAUTHORIZED, "未认证的用户", null);
+        }
+
+        // 检查用户ID是否合法
+        if (userId == null) {
+            return createResponse(HttpStatus.BAD_REQUEST, "无效的用户ID", null);
+        }
+
+        // 根据用户ID查询用户信息
+        User user = userService.getById(userId);
+
+        // 检查用户是否存在
+        if (user == null) {
+            return createResponse(HttpStatus.NOT_FOUND, "用户未找到", null);
+        }
+
+        // 返回用户信息
+        return createResponse(HttpStatus.OK, "用户信息获取成功", user);
+    }
+
+
 }

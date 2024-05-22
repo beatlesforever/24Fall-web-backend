@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.security.SecureRandom;
 import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * @author zhouhaoran
@@ -107,9 +108,21 @@ public class UserCouponController {
         }
 
         List<UserCoupon> userCoupons = userCouponService.lambdaQuery().eq(UserCoupon::getUserId, userId).list();
+        List<Map<String, Object>> result = userCoupons.stream().map(userCoupon -> {
+            Map<String, Object> couponInfo = new HashMap<>();
+            Coupon coupon = couponService.getById(userCoupon.getCouponId());
+            couponInfo.put("userCouponId", userCoupon.getUserCouponId());
+            couponInfo.put("couponId", coupon.getCouponId());
+            couponInfo.put("discount", coupon.getDiscount());
+            couponInfo.put("expirationDate", coupon.getExpirationDate());
+            couponInfo.put("minPurchase", coupon.getMinPurchase());
+            couponInfo.put("isActive", coupon.getIsActive());
+            couponInfo.put("isUsed", userCoupon.getIsUsed());
+            return couponInfo;
+        }).collect(Collectors.toList());
 
         // 返回成功响应
-        return createResponse(HttpStatus.OK, "查询成功", userCoupons);
+        return createResponse(HttpStatus.OK, "查询成功", result);
     }
 
 
@@ -120,7 +133,7 @@ public class UserCouponController {
      * @return 返回响应实体，包含用户未使用的优惠券信息和HTTP状态码
      */
     @GetMapping("/user/{userId}/unused")
-    public ResponseEntity<Map<String, Object>> getUnusedUserCoupons(@PathVariable Integer userId,Authentication authentication) {
+    public ResponseEntity<Map<String, Object>> getUnusedUserCoupons(@PathVariable Integer userId, Authentication authentication) {
         if (authentication == null || !authentication.isAuthenticated()) {
             return createResponse(HttpStatus.UNAUTHORIZED, "用户未认证", null);
         }
@@ -138,8 +151,21 @@ public class UserCouponController {
                 .eq(UserCoupon::getIsUsed, false)
                 .list();
 
+        List<Map<String, Object>> result = unusedUserCoupons.stream().map(userCoupon -> {
+            Map<String, Object> couponInfo = new HashMap<>();
+            Coupon coupon = couponService.getById(userCoupon.getCouponId());
+            couponInfo.put("userCouponId", userCoupon.getUserCouponId());
+            couponInfo.put("couponId", coupon.getCouponId());
+            couponInfo.put("discount", coupon.getDiscount());
+            couponInfo.put("expirationDate", coupon.getExpirationDate());
+            couponInfo.put("minPurchase", coupon.getMinPurchase());
+            couponInfo.put("isActive", coupon.getIsActive());
+            couponInfo.put("isUsed", userCoupon.getIsUsed());
+            return couponInfo;
+        }).collect(Collectors.toList());
+
         // 返回成功响应
-        return createResponse(HttpStatus.OK, "查询成功", unusedUserCoupons);
+        return createResponse(HttpStatus.OK, "查询成功", result);
     }
 
     /**
@@ -149,7 +175,7 @@ public class UserCouponController {
      * @return 返回响应实体，包含用户已使用的优惠券信息和HTTP状态码
      */
     @GetMapping("/user/{userId}/used")
-    public ResponseEntity<Map<String, Object>> getUsedUserCoupons(@PathVariable Integer userId,Authentication authentication) {
+    public ResponseEntity<Map<String, Object>> getUsedUserCoupons(@PathVariable Integer userId, Authentication authentication) {
         if (authentication == null || !authentication.isAuthenticated()) {
             return createResponse(HttpStatus.UNAUTHORIZED, "用户未认证", null);
         }
@@ -168,8 +194,22 @@ public class UserCouponController {
                 .eq(UserCoupon::getIsUsed, true)
                 .list();
 
+        List<Map<String, Object>> result = usedUserCoupons.stream().map(userCoupon -> {
+            Map<String, Object> couponInfo = new HashMap<>();
+            Coupon coupon = couponService.getById(userCoupon.getCouponId());
+            couponInfo.put("userCouponId", userCoupon.getUserCouponId());
+            couponInfo.put("couponId", coupon.getCouponId());
+            couponInfo.put("discount", coupon.getDiscount());
+            couponInfo.put("expirationDate", coupon.getExpirationDate());
+            couponInfo.put("minPurchase", coupon.getMinPurchase());
+            couponInfo.put("isActive", coupon.getIsActive());
+            couponInfo.put("isUsed", userCoupon.getIsUsed());
+            return couponInfo;
+        }).collect(Collectors.toList());
+
         // 返回成功响应
-        return createResponse(HttpStatus.OK, "查询成功", usedUserCoupons);
+        return createResponse(HttpStatus.OK, "查询成功", result);
     }
+
 
 }

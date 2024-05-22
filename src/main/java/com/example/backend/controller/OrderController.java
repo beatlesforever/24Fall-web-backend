@@ -402,6 +402,60 @@ public class OrderController {
         // 退款成功，返回200和订单信息
         return createResponse(HttpStatus.OK, "订单已退款", order);
     }
+
+    /**
+     * 更新订单信息。
+     *
+     * @param orderId 订单ID，通过路径变量传递。
+     * @param updatedOrder 包含更新后的订单信息的对象，通过请求体传入。
+     * @param authentication 当前用户的认证信息，用于权限验证。
+     * @return 返回包含更新后订单信息的ResponseEntity；如果订单未找到，返回一个订单未找到的ResponseEntity；如果用户未认证，返回未授权的ResponseEntity。
+     */
+    @PutMapping("/{orderId}")
+    public ResponseEntity<?> updateOrder(@PathVariable Integer orderId, @RequestBody Order updatedOrder, Authentication authentication) {
+        // 检查用户是否认证
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return createResponse(HttpStatus.UNAUTHORIZED, "用户未认证", null);
+        }
+
+        // 根据订单ID获取订单
+        Order existingOrder = orderService.getById(orderId);
+        // 如果订单不存在，返回未找到的响应
+        if (existingOrder == null) {
+            return createResponse(HttpStatus.NOT_FOUND, "订单未找到", null);
+        }
+
+        // 更新订单信息
+        existingOrder.setUserId(updatedOrder.getUserId());
+        existingOrder.setStoreId(updatedOrder.getStoreId());
+        existingOrder.setStatus(updatedOrder.getStatus());
+        existingOrder.setTotalPrice(updatedOrder.getTotalPrice());
+        existingOrder.setOrderTime(updatedOrder.getOrderTime());
+        existingOrder.setNotes(updatedOrder.getNotes());
+        existingOrder.setDineOption(updatedOrder.getDineOption());
+
+        // 保存更新后的订单到数据库
+        orderService.updateById(existingOrder);
+
+        // 根据订单ID重新获取更新后的订单
+        Order newOrder = orderService.getById(orderId);
+
+
+        // 构建更新后订单信息的响应体
+        Map<String, Object> data = new HashMap<>();
+        data.put("orderId", newOrder.getOrderId());
+        data.put("userId", newOrder.getUserId());
+        data.put("storeId", newOrder.getStoreId());
+        data.put("status", newOrder.getStatus());
+        data.put("totalPrice", newOrder.getTotalPrice());
+        data.put("orderTime", newOrder.getOrderTime());
+        data.put("notes", newOrder.getNotes());
+        data.put("dineOption", newOrder.getDineOption());
+
+        // 返回订单信息的响应
+        return createResponse(HttpStatus.OK, "订单信息更新成功", data);
+    }
+
     /**
      * 更新库存信息。
      * 该方法根据订单中的商品详情，更新对应商品的库存数量。
