@@ -563,18 +563,19 @@ public class OrderController {
      *         如果用户未进行认证，返回401未授权状态。
      */
     @GetMapping("/user/{userId}/completed")
-    public ResponseEntity<?> getCompletedOrders(@PathVariable Integer userId, Authentication authentication) {
+    public ResponseEntity<Map<String, Object>> getCompletedOrders(@PathVariable Integer userId, Authentication authentication) {
         // 验证用户是否认证
         if (authentication == null || !authentication.isAuthenticated()) {
             return createResponse(HttpStatus.UNAUTHORIZED, "用户未认证", null);
         }
+
         // 根据用户ID查询已完成订单
         List<Order> completedOrders = orderService.lambdaQuery()
                 .eq(Order::getUserId, userId)
                 .eq(Order::getStatus, OrderStatus.COMPLETED.toString())
                 .list();
 
-        // 将订单信息转换为简洁的Map格式
+        // 将订单信息转换为包含用户信息、订单详情和菜单项信息的Map格式
         List<Map<String, Object>> orderDetails = completedOrders.stream().map(order -> {
             Map<String, Object> detail = new HashMap<>();
             detail.put("orderId", order.getOrderId());
@@ -585,15 +586,63 @@ public class OrderController {
             detail.put("orderTime", order.getOrderTime());
             detail.put("notes", order.getNotes());
             detail.put("dineOption", order.getDineOption());
+
+            // 获取用户信息
+            User user = userService.getById(order.getUserId());
+            if (user != null) {
+                Map<String, Object> userInfo = new HashMap<>();
+                userInfo.put("userId", user.getUserId());
+                userInfo.put("name", user.getName());
+                userInfo.put("phone", user.getPhone());
+                userInfo.put("registrationDate", user.getRegistrationDate());
+                userInfo.put("balance", user.getBalance());
+                userInfo.put("role", user.getRole());
+                detail.put("userInfo", userInfo);
+            }
+
+            // 获取订单详情信息
+            List<OrderDetail> orderDetailsList = orderDetailService.lambdaQuery().eq(OrderDetail::getOrderId, order.getOrderId()).list();
+            List<Map<String, Object>> orderDetailsInfo = orderDetailsList.stream().map(orderDetail -> {
+                Map<String, Object> detailInfo = new HashMap<>();
+                detailInfo.put("detailId", orderDetail.getDetailId());
+                detailInfo.put("orderId", orderDetail.getOrderId());
+                detailInfo.put("itemId", orderDetail.getItemId());
+                detailInfo.put("quantity", orderDetail.getQuantity());
+                detailInfo.put("price", orderDetail.getPrice());
+                detailInfo.put("size", orderDetail.getSize());
+                detailInfo.put("specialRequests", orderDetail.getSpecialRequests());
+
+                // 获取菜单项信息
+                MenuItem menuItem = menuItemService.getById(orderDetail.getItemId());
+                if (menuItem != null) {
+                    Map<String, Object> menuItemInfo = new HashMap<>();
+                    menuItemInfo.put("itemId", menuItem.getItemId());
+                    menuItemInfo.put("storeId", menuItem.getStoreId());
+                    menuItemInfo.put("name", menuItem.getName());
+                    menuItemInfo.put("description", menuItem.getDescription());
+                    menuItemInfo.put("imageUrl", menuItem.getImageUrl());
+                    menuItemInfo.put("category", menuItem.getCategory());
+                    menuItemInfo.put("smallSizePrice", menuItem.getSmallSizePrice());
+                    menuItemInfo.put("largeSizePrice", menuItem.getLargeSizePrice());
+                    menuItemInfo.put("sizeStock", menuItem.getSizeStock());
+                    detailInfo.put("menuItemInfo", menuItemInfo);
+                }
+
+                return detailInfo;
+            }).collect(Collectors.toList());
+            detail.put("orderDetails", orderDetailsInfo);
+
             return detail;
         }).collect(Collectors.toList());
 
         // 准备返回的数据结构
         Map<String, Object> data = new HashMap<>();
         data.put("orders", orderDetails);
+
         // 构造成功返回的响应实体
         return createResponse(HttpStatus.OK, "用户已完成订单列表获取成功", data);
     }
+
 
     /**
      * 获取某家店铺的所有进行中订单。
@@ -604,7 +653,7 @@ public class OrderController {
      *         如果用户未进行认证，返回401未授权状态。
      */
     @GetMapping("/store/{storeId}/in-progress")
-    public ResponseEntity<?> getInProgressOrders(@PathVariable Integer storeId, Authentication authentication) {
+    public ResponseEntity<Map<String, Object>> getInProgressOrders(@PathVariable Integer storeId, Authentication authentication) {
         // 验证用户是否认证
         if (authentication == null || !authentication.isAuthenticated()) {
             return createResponse(HttpStatus.UNAUTHORIZED, "用户未认证", null);
@@ -616,7 +665,7 @@ public class OrderController {
                 .eq(Order::getStatus, OrderStatus.IN_PROGRESS.toString())
                 .list();
 
-        // 将订单信息转换为简洁的Map格式
+        // 将订单信息转换为包含用户信息、订单详情和菜单项信息的Map格式
         List<Map<String, Object>> orderDetails = inProgressOrders.stream().map(order -> {
             Map<String, Object> detail = new HashMap<>();
             detail.put("orderId", order.getOrderId());
@@ -627,13 +676,61 @@ public class OrderController {
             detail.put("orderTime", order.getOrderTime());
             detail.put("notes", order.getNotes());
             detail.put("dineOption", order.getDineOption());
+
+            // 获取用户信息
+            User user = userService.getById(order.getUserId());
+            if (user != null) {
+                Map<String, Object> userInfo = new HashMap<>();
+                userInfo.put("userId", user.getUserId());
+                userInfo.put("name", user.getName());
+                userInfo.put("phone", user.getPhone());
+                userInfo.put("registrationDate", user.getRegistrationDate());
+                userInfo.put("balance", user.getBalance());
+                userInfo.put("role", user.getRole());
+                detail.put("userInfo", userInfo);
+            }
+
+            // 获取订单详情信息
+            List<OrderDetail> orderDetailsList = orderDetailService.lambdaQuery().eq(OrderDetail::getOrderId, order.getOrderId()).list();
+            List<Map<String, Object>> orderDetailsInfo = orderDetailsList.stream().map(orderDetail -> {
+                Map<String, Object> detailInfo = new HashMap<>();
+                detailInfo.put("detailId", orderDetail.getDetailId());
+                detailInfo.put("orderId", orderDetail.getOrderId());
+                detailInfo.put("itemId", orderDetail.getItemId());
+                detailInfo.put("quantity", orderDetail.getQuantity());
+                detailInfo.put("price", orderDetail.getPrice());
+                detailInfo.put("size", orderDetail.getSize());
+                detailInfo.put("specialRequests", orderDetail.getSpecialRequests());
+
+                // 获取菜单项信息
+                MenuItem menuItem = menuItemService.getById(orderDetail.getItemId());
+                if (menuItem != null) {
+                    Map<String, Object> menuItemInfo = new HashMap<>();
+                    menuItemInfo.put("itemId", menuItem.getItemId());
+                    menuItemInfo.put("storeId", menuItem.getStoreId());
+                    menuItemInfo.put("name", menuItem.getName());
+                    menuItemInfo.put("description", menuItem.getDescription());
+                    menuItemInfo.put("imageUrl", menuItem.getImageUrl());
+                    menuItemInfo.put("category", menuItem.getCategory());
+                    menuItemInfo.put("smallSizePrice", menuItem.getSmallSizePrice());
+                    menuItemInfo.put("largeSizePrice", menuItem.getLargeSizePrice());
+                    menuItemInfo.put("sizeStock", menuItem.getSizeStock());
+                    detailInfo.put("menuItemInfo", menuItemInfo);
+                }
+
+                return detailInfo;
+            }).collect(Collectors.toList());
+            detail.put("orderDetails", orderDetailsInfo);
+
             return detail;
         }).collect(Collectors.toList());
 
         // 准备返回的数据结构
         Map<String, Object> data = new HashMap<>();
         data.put("orders", orderDetails);
+
         // 构造成功返回的响应实体
         return createResponse(HttpStatus.OK, "店铺进行中订单列表获取成功", data);
     }
+
 }
