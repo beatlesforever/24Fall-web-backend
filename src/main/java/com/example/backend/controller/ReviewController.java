@@ -2,10 +2,8 @@ package com.example.backend.controller;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
-import com.example.backend.entity.Review;
-import com.example.backend.service.IMenuItemService;
-import com.example.backend.service.IReviewService;
-import com.example.backend.service.IUserService;
+import com.example.backend.entity.*;
+import com.example.backend.service.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -19,6 +17,7 @@ import java.time.Instant;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * @author zhouhaoran
@@ -34,6 +33,12 @@ public class ReviewController {
     IMenuItemService menuItemService;
     @Autowired
     IUserService userService;
+
+    @Autowired
+    IOrderDetailService orderDetailService;
+
+    @Autowired
+    IOrderService orderService;
 
     private ResponseEntity<Map<String, Object>> createResponse(HttpStatus status, String message, Object data) {
         Map<String, Object> responseBody = new HashMap<>();
@@ -206,20 +211,40 @@ public class ReviewController {
 
 
     /**
-     * 获取指定菜品ID的评论统计信息
+     * 获取指定菜品ID的统计信息，包括基本信息、平均评分、评价数量、销量以及所有评论信息内容。
      *
-     * @param itemId 菜品的ID，用于查询对应的评论统计数据
-     * @return ResponseEntity<Map<String, Object>> 返回一个包含评论统计信息的响应实体，
+     * @param itemId 菜品的ID，用于查询对应的统计数据
+     * @return ResponseEntity<Map<String, Object>> 返回一个包含统计信息的响应实体，
      *         如果菜品ID不存在，则返回状态码为404的响应
-     *
      */
     @GetMapping("/item/{itemId}/statistics")
-    public ResponseEntity<Map<String, Object>> getReviewStatistics(@PathVariable Integer itemId) {
+    public ResponseEntity<Map<String, Object>> getItemStatistics(@PathVariable Integer itemId) {
         // 检查菜品是否存在
-        boolean itemExists = menuItemService.getById(itemId) != null;
-        if (!itemExists) {
+        MenuItem menuItem = menuItemService.getById(itemId);
+        if (menuItem == null) {
             return createResponse(HttpStatus.NOT_FOUND, "菜品ID不存在", null);
         }
+
+        // 获取所有已完成的订单，用于后续计算销量
+        List<Order> completedOrders = orderService.lambdaQuery()
+                .eq(Order::getStatus, OrderStatus.COMPLETED.toString())
+                .list();
+
+        // 获取所有订单详情，用于统计该菜品的销量
+        List<OrderDetail> orderDetails = orderDetailService.lambdaQuery()
+                .eq(OrderDetail::getItemId, itemId)
+                .list();
+
+        Map<String, Object> stats = new HashMap<>();
+        // 菜品基本信息
+        stats.put("itemId", menuItem.getItemId());
+        stats.put("name", menuItem.getName());
+        stats.put("description", menuItem.getDescription());
+        stats.put("imageUrl", menuItem.getImageUrl());
+        stats.put("category", menuItem.getCategory());
+        stats.put("smallSizePrice", menuItem.getSmallSizePrice());
+        stats.put("largeSizePrice", menuItem.getLargeSizePrice());
+        stats.put("sizeStock", menuItem.getSizeStock());
 
         // 计算平均评分
         QueryWrapper<Review> avgWrapper = Wrappers.query();
@@ -228,17 +253,130 @@ public class ReviewController {
         Map<String, Object> avgResult = reviewService.getMap(avgWrapper);
         BigDecimal avgRatingDecimal = avgResult != null ? (BigDecimal) avgResult.get("avgRating") : BigDecimal.ZERO;
         Double averageRating = avgRatingDecimal.doubleValue();
+        stats.put("averageRating", averageRating);
 
-        // 统计评价数量
+        // 统计该菜品的评价数量
         long totalReviews = reviewService.lambdaQuery()
                 .eq(Review::getItemId, itemId)
                 .count();
+        stats.put("totalReviews", totalReviews);
 
-        // 构建并返回评论统计信息
-        Map<String, Object> responseData = new HashMap<>();
-        responseData.put("averageRating", averageRating);
-        responseData.put("totalReviews", totalReviews);
-        return createResponse(HttpStatus.OK, "统计成功", responseData);
+        // 获取该菜品的所有评价
+        List<Review> reviews = reviewService.lambdaQuery()
+                .eq(Review::getItemId, itemId)
+                .list();
+        List<Map<String, Object>> reviewDetails = reviews.stream().map(review -> {
+            Map<String, Object> reviewData = new HashMap<>();
+            reviewData.put("reviewId", review.getReviewId());
+            reviewData.put("userId", review.getUserId());
+            reviewData.put("itemId", review.getItemId());
+            reviewData.put("rating", review.getRating());
+            reviewData.put("comment", review.getComment());
+            reviewData.put("reviewTime", review.getReviewTime());
+            return reviewData;
+        }).collect(Collectors.toList());
+        stats.put("reviews", reviewDetails);
+
+        // 统计销量，筛选出对应菜品且订单已完成的订单详情，然后累加销量
+        long totalSales = orderDetails.stream()
+                .filter(orderDetail -> completedOrders.stream()
+                        .anyMatch(order -> order.getOrderId().equals(orderDetail.getOrderId())))
+                .mapToLong(OrderDetail::getQuantity)
+                .sum();
+        stats.put("totalSales", totalSales);
+
+        // 准备最终返回的数据结构
+        Map<String, Object> data = new HashMap<>();
+        data.put("itemStatistics", stats);
+
+        // 构造成功返回的响应实体
+        return createResponse(HttpStatus.OK, "菜品统计信息获取成功", data);
     }
+
+    /**
+     * 获取所有菜品的统计信息，包括评价和销量。
+     *
+     * @return ResponseEntity<Map<String, Object>> 返回一个包含所有菜品统计信息的响应实体，
+     *         如果查询成功，返回状态码为200和统计数据。
+     *         响应实体中包含的统计数据有：菜品ID、名称、描述、图片URL、类别、小份价格、大份价格、库存，
+     *         平均评分、评价数量以及销量。
+     */
+    @GetMapping("/menu-items")
+    public ResponseEntity<Map<String, Object>> getMenuItemsStatistics() {
+        // 获取所有菜品信息
+        List<MenuItem> menuItems = menuItemService.list();
+
+        // 获取所有已完成的订单，用于后续计算销量
+        List<Order> completedOrders = orderService.lambdaQuery()
+                .eq(Order::getStatus, OrderStatus.COMPLETED.toString())
+                .list();
+
+        // 获取所有订单详情，用于统计每个菜品的销量
+        List<OrderDetail> orderDetails = orderDetailService.list();
+
+        // 统计每个菜品的评价和销量信息
+        List<Map<String, Object>> menuItemsStats = menuItems.stream().map(menuItem -> {
+            Map<String, Object> stats = new HashMap<>();
+            // 菜品基本信息
+            stats.put("itemId", menuItem.getItemId());
+            stats.put("name", menuItem.getName());
+            stats.put("description", menuItem.getDescription());
+            stats.put("imageUrl", menuItem.getImageUrl());
+            stats.put("category", menuItem.getCategory());
+            stats.put("smallSizePrice", menuItem.getSmallSizePrice());
+            stats.put("largeSizePrice", menuItem.getLargeSizePrice());
+            stats.put("sizeStock", menuItem.getSizeStock());
+
+            // 计算平均评分
+            QueryWrapper<Review> avgWrapper = Wrappers.query();
+            avgWrapper.select("AVG(rating) as avgRating")
+                    .eq("item_id", menuItem.getItemId());
+            Map<String, Object> avgResult = reviewService.getMap(avgWrapper);
+            BigDecimal avgRatingDecimal = avgResult != null ? (BigDecimal) avgResult.get("avgRating") : BigDecimal.ZERO;
+            Double averageRating = avgRatingDecimal.doubleValue();
+            stats.put("averageRating", averageRating);
+
+            // 统计该菜品的评价数量
+            long totalReviews = reviewService.lambdaQuery()
+                    .eq(Review::getItemId, menuItem.getItemId())
+                    .count();
+            stats.put("totalReviews", totalReviews);
+
+            // 获取该菜品的所有评价
+            List<Review> reviews = reviewService.lambdaQuery()
+                    .eq(Review::getItemId, menuItem.getItemId())
+                    .list();
+            List<Map<String, Object>> reviewDetails = reviews.stream().map(review -> {
+                Map<String, Object> reviewData = new HashMap<>();
+                reviewData.put("reviewId", review.getReviewId());
+                reviewData.put("userId", review.getUserId());
+                reviewData.put("itemId", review.getItemId());
+                reviewData.put("rating", review.getRating());
+                reviewData.put("comment", review.getComment());
+                reviewData.put("reviewTime", review.getReviewTime());
+                return reviewData;
+            }).collect(Collectors.toList());
+            stats.put("reviews", reviewDetails);
+
+            // 统计销量，筛选出对应菜品且订单已完成的订单详情，然后累加销量
+            long totalSales = orderDetails.stream()
+                    .filter(orderDetail -> orderDetail.getItemId().equals(menuItem.getItemId()) &&
+                            completedOrders.stream()
+                                    .anyMatch(order -> order.getOrderId().equals(orderDetail.getOrderId())))
+                    .mapToLong(OrderDetail::getQuantity)
+                    .sum();
+            stats.put("totalSales", totalSales);
+
+            return stats;
+        }).collect(Collectors.toList());
+
+        // 准备最终返回的数据结构
+        Map<String, Object> data = new HashMap<>();
+        data.put("menuItemsStatistics", menuItemsStats);
+
+        // 构造成功返回的响应实体
+        return createResponse(HttpStatus.OK, "所有菜品统计信息获取成功", data);
+    }
+
 
 }
