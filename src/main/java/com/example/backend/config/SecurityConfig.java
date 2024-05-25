@@ -36,6 +36,7 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
     public AuthenticationManager authenticationManagerBean() throws Exception {
         return super.authenticationManagerBean();
     }
+
     /**
      * 创建并配置JwtAuthenticationFilter Bean。
      * 这个过滤器用于处理JWT认证请求，会拦截特定的URL请求进行认证处理。
@@ -52,53 +53,34 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
 
     /**
      * 配置HTTP安全设置，以定义应用程序的 seguridad 规则。
+     * 这个方法定制了Spring Security的HttpSecurity配置，来适应应用的授权和安全需求。
+     * 具体配置包括：禁用CSRF保护、配置哪些URL路径需要授权、哪些路径对所有请求开放、
+     * 添加自定义的JWT认证过滤器以及配置CORS和frameOptions。
      *
-     * @param http 用于配置HttpSecurity的对象。
-     * @throws Exception 如果在配置过程中发生错误。
+     * @param http 用于配置HttpSecurity的对象。HttpSecurity是一个配置接口，用于定制请求过滤器、访问控制等安全设置。
+     * @throws Exception 如果在配置过程中发生错误。任何配置错误都可能抛出异常。
      */
     @Override
     protected void configure(HttpSecurity http) throws Exception {
+        // 禁用CSRF保护，因为JWT认证不需要它
         http
-                .csrf().disable() // 禁用CSRF保护，适用于无状态API
+                .csrf().disable()
+                // 配置请求授权规则
                 .authorizeRequests()
+                // 指定不需要认证即可访问的路径
                 .antMatchers("/api/users/login", "/api/users/register", "/h2-console/**").permitAll()
                 .antMatchers("/api/public/**").permitAll()
+                // 除上述路径外，其它所有请求都需要认证
                 .anyRequest().authenticated()
+                // 添加JWT认证过滤器
                 .and()
                 .addFilter(jwtAuthenticationFilter())
+                // 在UsernamePasswordAuthenticationFilter之前添加JWT授权过滤器
                 .addFilterBefore(new JwtAuthorizationFilter(userService), UsernamePasswordAuthenticationFilter.class);
 
-        // 允许H2控制台的跨源请求
+        // 配置HTTP头，允许同源策略，支持CORS
         http.headers().frameOptions().sameOrigin();
-
-        // 启用CORS支持
         http.cors();
-    }
-
-    /**
-     * 配置全局CORS策略的函数。
-     * 这个函数没有参数。
-     * @return 返回一个WebMvcConfigurer实例，用来配置CORS跨域资源共享规则。
-     */
-    @Bean
-    public WebMvcConfigurer corsConfigurer() {
-        return new WebMvcConfigurer() {
-            /**
-             * 向Spring MVC添加CORS映射的函数。
-             * 这个函数接收一个CorsRegistry实例，用来注册CORS映射。
-             * @param registry CorsRegistry实例，用于添加CORS映射。
-             */
-            @Override
-            public void addCorsMappings(CorsRegistry registry) {
-                // 为所有路径添加CORS映射，并配置相关选项
-                registry.addMapping("/**")
-                        .allowedOrigins("https://order.lc-0.cn") // 允许特定来源访问
-                        .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS") // 允许的方法
-                        .allowedHeaders("*") // 允许所有请求头
-                        .allowCredentials(true) // 允许凭证（cookies）
-                        .maxAge(3600); // 设置预检请求的缓存时间（1小时）
-            }
-        };
     }
 
 }
