@@ -92,7 +92,7 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
             public void addCorsMappings(CorsRegistry registry) {
                 // 为所有路径添加CORS映射，并配置相关选项
                 registry.addMapping("/**")
-                        .allowedOrigins("https://order.lc-0.cn") // 允许指定域访问
+                        .allowedOrigins("*") // 允许指定域访问
                         .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS") // 允许的方法
                         .allowedHeaders("*") // 允许所有请求头
                         .allowCredentials(true) // 允许凭证（cookies）
