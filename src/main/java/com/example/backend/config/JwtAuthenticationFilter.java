@@ -103,6 +103,7 @@ public class JwtAuthenticationFilter extends UsernamePasswordAuthenticationFilte
                 .compact();
 
         // 将JWT作为HTTP响应头发送给客户端
+        response.addHeader("Access-Control-Expose-Headers","Authorization");
         response.addHeader("Authorization", "Bearer " + token);
 
         // 构建登录成功后的响应体数据
