@@ -106,7 +106,8 @@ public class JwtAuthenticationFilter extends UsernamePasswordAuthenticationFilte
         response.addHeader("Access-Control-Expose-Headers", "Authorization");
 
         // 将JWT作为HTTP响应头发送给客户端
-        response.addHeader("Authorization", "Bearer " + token);
+        response.setHeader("Access-Control-Expose-Headers","Authorization");
+        response.setHeader("Authorization", "Bearer " + token);
 
         // 构建登录成功后的响应体数据
         Map<String, Object> data = new HashMap<>();
@@ -120,6 +121,7 @@ public class JwtAuthenticationFilter extends UsernamePasswordAuthenticationFilte
         Map<String, Object> responseBody = new HashMap<>();
         responseBody.put("status", "200 OK");
         responseBody.put("data", data);
+        responseBody.put("token", token);
         responseBody.put("message", "用户登录成功！");
 
         // 将响应信息转换为JSON格式并写回响应流
