@@ -102,6 +102,9 @@ public class JwtAuthenticationFilter extends UsernamePasswordAuthenticationFilte
                 .signWith(SignatureAlgorithm.HS512, "SecretKey") // 使用 HS512 算法和 "SecretKey" 作为密钥进行签名。
                 .compact();
 
+        // 允许跨域访问JWT头
+        response.addHeader("Access-Control-Expose-Headers", "Authorization");
+
         // 将JWT作为HTTP响应头发送给客户端
         response.addHeader("Authorization", "Bearer " + token);
 
