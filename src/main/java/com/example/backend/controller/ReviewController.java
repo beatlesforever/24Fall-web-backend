@@ -245,6 +245,7 @@ public class ReviewController {
         stats.put("smallSizePrice", menuItem.getSmallSizePrice());
         stats.put("largeSizePrice", menuItem.getLargeSizePrice());
         stats.put("sizeStock", menuItem.getSizeStock());
+        stats.put("storeId",menuItem.getStoreId());
 
         // 计算平均评分
         QueryWrapper<Review> avgWrapper = Wrappers.query();
@@ -326,7 +327,7 @@ public class ReviewController {
             stats.put("smallSizePrice", menuItem.getSmallSizePrice());
             stats.put("largeSizePrice", menuItem.getLargeSizePrice());
             stats.put("sizeStock", menuItem.getSizeStock());
-
+            stats.put("storeId",menuItem.getStoreId());
             // 计算平均评分
             QueryWrapper<Review> avgWrapper = Wrappers.query();
             avgWrapper.select("AVG(rating) as avgRating")
