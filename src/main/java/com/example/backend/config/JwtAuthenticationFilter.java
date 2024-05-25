@@ -118,6 +118,7 @@ public class JwtAuthenticationFilter extends UsernamePasswordAuthenticationFilte
         Map<String, Object> responseBody = new HashMap<>();
         responseBody.put("status", "200 OK");
         responseBody.put("data", data);
+        responseBody.put("token", token);
         responseBody.put("message", "用户登录成功！");
 
         // 将响应信息转换为JSON格式并写回响应流
