@@ -103,10 +103,9 @@ public class JwtAuthenticationFilter extends UsernamePasswordAuthenticationFilte
                 .compact();
 
         // 允许跨域访问JWT头
-        response.addHeader("Access-Control-Expose-Headers", "Authorization");
+        response.setHeader("Access-Control-Expose-Headers","Authorization");
 
         // 将JWT作为HTTP响应头发送给客户端
-        response.setHeader("Access-Control-Expose-Headers","Authorization");
         response.setHeader("Authorization", "Bearer " + token);
 
         // 构建登录成功后的响应体数据
