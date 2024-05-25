@@ -31,8 +31,8 @@ public class CorsConfig {
             public void addCorsMappings(CorsRegistry registry) {
                 // 为所有路径添加CORS映射，并配置相关选项
                 registry.addMapping("/**")
-                        // 允许来自https://order.lc-0.cn的跨域请求
-                        .allowedOrigins("https://order.lc-0.cn")
+                        // 允许所有来源访问
+                        .allowedOrigins("*")
                         // 允许GET、POST、PUT、DELETE和OPTIONS方法的跨域请求
                         .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
                         // 允许所有请求头
@@ -44,5 +44,6 @@ public class CorsConfig {
             }
         };
     }
+
 
 }
