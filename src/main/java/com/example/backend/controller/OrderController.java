@@ -64,6 +64,7 @@ public class OrderController {
         order.setTotalPrice(BigDecimal.ZERO);  // 初始金额设置为0
         order.setStatus(OrderStatus.CREATED.toString());  // 订单状态设置为已创建
         order.setOrderTime(new Timestamp(System.currentTimeMillis()));  // 设置订单时间为当前时间
+        order.setUpdateTime(new Timestamp(System.currentTimeMillis()));  // 设置订单更新时间为当前时间
 
         // 保存订单到数据库
         orderService.save(order);
@@ -78,7 +79,7 @@ public class OrderController {
         data.put("orderTime", order.getOrderTime());
         data.put("notes", order.getNotes());
         data.put("dineOption", order.getDineOption());
-
+        data.put("updateTime", order.getUpdateTime());
 
         // 返回订单创建成功的响应，包含订单详细信息
         return createResponse(HttpStatus.OK, "订单创建成功", data);
@@ -115,6 +116,7 @@ public class OrderController {
         data.put("orderTime", order.getOrderTime());
         data.put("notes", order.getNotes());
         data.put("dineOption", order.getDineOption());
+        data.put("updateTime", order.getUpdateTime());
 
         // 返回订单信息的响应
         return createResponse(HttpStatus.OK, "订单信息获取成功", data);
@@ -150,6 +152,7 @@ public class OrderController {
             detail.put("orderTime", order.getOrderTime());
             detail.put("notes", order.getNotes());
             detail.put("dineOption", order.getDineOption());
+            detail.put("updateTime", order.getUpdateTime());
             return detail;
         }).collect(Collectors.toList());
 
@@ -161,6 +164,13 @@ public class OrderController {
     }
 
 
+    /**
+     * 获取所有订单的详细信息列表。
+     *
+     * 该接口不接受任何参数，返回所有订单的详细信息集合。订单信息以Map的形式返回，包括订单的各种属性，如订单ID、用户ID、商店ID等。
+     *
+     * @return ResponseEntity<?> 包含订单详情列表的响应实体，其中?为Map类型，包含"orders"键，其值为订单详情列表。
+     */
     @GetMapping
     public ResponseEntity<?> getAllOrders() {
         // 从订单服务获取所有订单列表
@@ -177,6 +187,7 @@ public class OrderController {
             detail.put("orderTime", order.getOrderTime());
             detail.put("notes", order.getNotes());
             detail.put("dineOption", order.getDineOption());
+            detail.put("updateTime", order.getUpdateTime());
             return detail;
         }).collect(Collectors.toList());
 
@@ -187,6 +198,8 @@ public class OrderController {
         // 创建并返回一个包含状态码、消息和数据的响应实体
         return createResponse(HttpStatus.OK, "所有订单列表获取成功", data);
     }
+
+
     /**
      * 删除订单。
      *
@@ -209,6 +222,8 @@ public class OrderController {
             return createResponse(HttpStatus.NOT_FOUND, "订单未找到", null);
         }
     }
+
+
     /**
      * 获取订单统计信息。
      *
@@ -229,6 +244,7 @@ public class OrderController {
         // 返回统计信息
         return createResponse(HttpStatus.OK, "订单统计信息获取成功", stats);
     }
+
 
     /**
      * 确认订单操作。
@@ -294,6 +310,7 @@ public class OrderController {
         updateInventory(order, false);
         deductUserBalance(order);
         order.setStatus(OrderStatus.IN_PROGRESS.toString());
+        order.setUpdateTime(new Timestamp(System.currentTimeMillis())); // 更新订单的更新时间
         orderService.updateById(order);
 
         // 订单确认成功，返回200
@@ -328,6 +345,7 @@ public class OrderController {
         }
 
         order.setStatus(OrderStatus.COMPLETED.toString());
+        order.setUpdateTime(new Timestamp(System.currentTimeMillis())); // 更新订单的更新时间
         orderService.updateById(order);
         // 返回订单完成成功的响应，包含订单信息
         return createResponse(HttpStatus.OK, "订单已完成", order);
@@ -362,6 +380,7 @@ public class OrderController {
         refundUserBalance(order); // 退还用户余额
         resetUserCoupon(orderId); // 重置优惠券状态为未使用
         order.setStatus(OrderStatus.CANCELLED.toString());
+        order.setUpdateTime(new Timestamp(System.currentTimeMillis())); // 更新订单的更新时间
         orderService.updateById(order);
         // 返回订单取消成功的响应
         return createResponse(HttpStatus.OK, "订单已取消", order);
@@ -397,6 +416,7 @@ public class OrderController {
         refundUserBalance(order); // 实际退款
         resetUserCoupon(orderId); // 重置优惠券状态为未使用
         order.setStatus(OrderStatus.REFUNDED.toString());
+        order.setUpdateTime(new Timestamp(System.currentTimeMillis())); // 更新订单的更新时间
         orderService.updateById(order);
 
         // 退款成功，返回200和订单信息
@@ -433,6 +453,8 @@ public class OrderController {
         existingOrder.setOrderTime(updatedOrder.getOrderTime());
         existingOrder.setNotes(updatedOrder.getNotes());
         existingOrder.setDineOption(updatedOrder.getDineOption());
+        existingOrder.setUpdateTime(new Timestamp(System.currentTimeMillis())); // 更新订单的更新时间
+
 
         // 保存更新后的订单到数据库
         orderService.updateById(existingOrder);
@@ -451,6 +473,7 @@ public class OrderController {
         data.put("orderTime", newOrder.getOrderTime());
         data.put("notes", newOrder.getNotes());
         data.put("dineOption", newOrder.getDineOption());
+        data.put("updateTime", newOrder.getUpdateTime());
 
         // 返回订单信息的响应
         return createResponse(HttpStatus.OK, "订单信息更新成功", data);
@@ -586,6 +609,7 @@ public class OrderController {
             detail.put("orderTime", order.getOrderTime());
             detail.put("notes", order.getNotes());
             detail.put("dineOption", order.getDineOption());
+            detail.put("updateTime", order.getUpdateTime());
 
             // 获取用户信息
             User user = userService.getById(order.getUserId());
@@ -676,6 +700,7 @@ public class OrderController {
             detail.put("orderTime", order.getOrderTime());
             detail.put("notes", order.getNotes());
             detail.put("dineOption", order.getDineOption());
+            detail.put("updateTime", order.getUpdateTime());
 
             // 获取用户信息
             User user = userService.getById(order.getUserId());

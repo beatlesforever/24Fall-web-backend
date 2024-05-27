@@ -20,4 +20,6 @@ public class Order {
     private Timestamp orderTime;
     private String notes;
     private String dineOption;
+    private Timestamp updateTime; // 新增字段
+
 }
