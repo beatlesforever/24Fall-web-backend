@@ -63,7 +63,6 @@ public class OrderController {
         // 初始化订单状态和时间
         order.setTotalPrice(BigDecimal.ZERO);  // 初始金额设置为0
         order.setStatus(OrderStatus.CREATED.toString());  // 订单状态设置为已创建
-        order.setOrderTime(new Timestamp(System.currentTimeMillis()));  // 设置订单时间为当前时间
         order.setUpdateTime(new Timestamp(System.currentTimeMillis()));  // 设置订单更新时间为当前时间
 
         // 保存订单到数据库
@@ -273,6 +272,15 @@ public class OrderController {
             return createResponse(HttpStatus.BAD_REQUEST, "订单状态不允许此操作", null);
         }
 
+        // 获取用户信息
+        User user = userService.getById(order.getUserId());
+        if (user == null) {
+            return createResponse(HttpStatus.BAD_REQUEST, "用户不存在", null);
+        }
+
+        // 计算订单的初始总价格
+        BigDecimal totalOrderPrice = calculateTotalPrice(order);
+
         // 如果提供了优惠券ID，则尝试应用优惠券折扣
         BigDecimal discount = BigDecimal.ZERO;
         if (userCouponId != null) {
@@ -288,29 +296,39 @@ public class OrderController {
             }
 
             // 检查订单总价是否满足优惠券的最低消费金额
-            BigDecimal totalOrderPrice = calculateTotalPrice(order);
             if (totalOrderPrice.compareTo(coupon.getMinPurchase()) < 0) {
                 return createResponse(HttpStatus.BAD_REQUEST, "订单总价未达到优惠券的最低消费金额", null);
             }
 
             // 应用优惠券折扣
             discount = coupon.getDiscount();
+        }
 
-            // 标记用户优惠券为已使用并记录订单ID
+        // 计算折扣后的订单总价格
+        BigDecimal newTotalPrice = totalOrderPrice.subtract(discount);
+
+        // 检查用户余额是否足够支付折扣后的订单总价格
+        if (user.getBalance().compareTo(newTotalPrice) < 0) {
+            return createResponse(HttpStatus.BAD_REQUEST, "用户余额不足", null);
+        }
+
+        // 如果提供了优惠券ID并且用户余额足够，则标记用户优惠券为已使用并记录订单ID
+        if (userCouponId != null) {
+            UserCoupon userCoupon = userCouponService.getById(userCouponId);
             userCoupon.setIsUsed(true);
             userCoupon.setOrderId(orderId);
             userCouponService.updateById(userCoupon);
-
-            // 更新订单总价格
-            BigDecimal newTotalPrice = totalOrderPrice.subtract(discount);
-            order.setTotalPrice(newTotalPrice);
         }
+
+        // 更新订单总价格
+        order.setTotalPrice(newTotalPrice);
 
         // 更新订单状态为进行中，减少库存并扣除用户余额（考虑优惠券折扣）
         updateInventory(order, false);
         deductUserBalance(order);
         order.setStatus(OrderStatus.IN_PROGRESS.toString());
         order.setUpdateTime(new Timestamp(System.currentTimeMillis())); // 更新订单的更新时间
+        order.setOrderTime(new Timestamp(System.currentTimeMillis()));  // 设置订单时间为当前时间
         orderService.updateById(order);
 
         // 订单确认成功，返回200

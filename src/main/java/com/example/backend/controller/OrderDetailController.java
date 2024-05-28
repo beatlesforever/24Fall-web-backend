@@ -124,10 +124,10 @@ public class OrderDetailController {
         }
 
 
-        // 检查用户余额是否充足
-        if (!isUserBalanceSufficient(order, orderDetail)) {
-            return createResponse(HttpStatus.BAD_REQUEST, "用户余额不足", null);
-        }
+//        // 检查用户余额是否充足
+//        if (!isUserBalanceSufficient(order, orderDetail)) {
+//            return createResponse(HttpStatus.BAD_REQUEST, "用户余额不足", null);
+//        }
 
 
         // 保存订单详情信息
@@ -246,10 +246,10 @@ public class OrderDetailController {
             return createResponse(HttpStatus.BAD_REQUEST, "无效的规格", null);
         }
 
-        // 检查用户余额是否充足
-        if (!isUserBalanceSufficient(order, orderDetail)) {
-            return createResponse(HttpStatus.BAD_REQUEST, "用户余额不足", null);
-        }
+//        // 检查用户余额是否充足
+//        if (!isUserBalanceSufficient(order, orderDetail)) {
+//            return createResponse(HttpStatus.BAD_REQUEST, "用户余额不足", null);
+//        }
 
         // 更新订单详情信息
         orderDetail.setDetailId(orderDetailId);
